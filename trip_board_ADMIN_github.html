@@ -1,0 +1,4459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>[ADMIN] 출장 보드 관리자</title>
+  
+  <!-- SheetJS 라이브러리 (CDN) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  
+
+  <!-- GitHub 업로드 스타일 -->
+  <style>
+    #ghUploadSection {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2d5282 100%);
+      border: 2px solid #2563eb;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+    }
+    #ghUploadSection h3 { margin: 0 0 12px; color: #fff; font-size: 14px; }
+    #ghUploadSection .gh-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    #ghUploadSection input[type="text"], #ghUploadSection input[type="password"] {
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3);
+      border-radius: 6px; padding: 8px 10px; color: #fff; font-size: 12px;
+      outline: none; font-family: inherit;
+    }
+    #ghUploadSection input[type="text"]::placeholder,
+    #ghUploadSection input[type="password"]::placeholder { color: rgba(255,255,255,.5); }
+    #ghUploadSection input[type="text"]:focus,
+    #ghUploadSection input[type="password"]:focus { border-color: #60a5fa; box-shadow: 0 0 0 2px rgba(96,165,250,.2); }
+    #ghUploadBtn {
+      background: #10b981; border: none; color: white; padding: 9px 18px;
+      border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer;
+      white-space: nowrap; font-family: inherit;
+    }
+    #ghUploadBtn:hover:not(:disabled) { background: #059669; }
+    #ghUploadBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #ghStatusMsg {
+      font-size: 12px; color: rgba(255,255,255,.85); margin-top: 8px;
+      padding: 6px 10px; background: rgba(0,0,0,.2); border-radius: 4px;
+      display: none;
+    }
+    #ghStatusMsg.ok { color: #6ee7b7; display: block; }
+    #ghStatusMsg.err { color: #fca5a5; display: block; }
+    #ghStatusMsg.loading { color: #93c5fd; display: block; }
+    .gh-help { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 6px; }
+    .gh-token-wrap { display: flex; gap: 6px; align-items: center; }
+    .gh-toggle-pw { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 11px; font-family: inherit; }
+  </style>
+  <style>
+    /* ═══════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════ */
+    :root {
+      /* Palette */
+      --c-bg:       #f0f4f8;
+      --c-surface:  #ffffff;
+      --c-border:   #dde3ec;
+      --c-border2:  #c8d0dc;
+
+      /* Text */
+      --c-text:     #1a2535;
+      --c-text2:    #4a5568;
+      --c-muted:    #7b8fa6;
+
+      /* Brand */
+      --c-navy:     #1e3a5f;
+      --c-navy2:    #2d5282;
+      --c-indigo:   #4f46e5;
+
+      /* Status */
+      --c-sky:      #2563eb;
+      --c-sky-bg:   #eff6ff;
+      --c-sky-bd:   #bfdbfe;
+
+      --c-green:    #059669;
+      --c-green-bg: #ecfdf5;
+      --c-green-bd: #a7f3d0;
+
+      --c-amber:    #d97706;
+      --c-amber-bg: #fffbeb;
+      --c-amber-bd: #fcd34d;
+
+      --c-rose:     #dc2626;
+      --c-rose-bg:  #fef2f2;
+      --c-rose-bd:  #fca5a5;
+
+      --c-ok-bg:    #f0fdf4;
+      --c-ok-text:  #15803d;
+      --c-ok-bd:    #bbf7d0;
+
+      /* Shadows */
+      --sh-xs: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+      --sh-sm: 0 2px 8px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.05);
+      --sh-md: 0 4px 20px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.07);
+      --sh-lg: 0 8px 40px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.10);
+
+      /* Radius */
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --r-xl: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: var(--c-bg);
+      color: var(--c-text);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT WRAPPER
+    ═══════════════════════════════════════════ */
+    .wrap {
+      max-width: 1700px;
+      margin: 0 auto;
+      padding: 0 16px 32px;
+    }
+
+    /* ═══════════════════════════════════════════
+       TOP BAR
+    ═══════════════════════════════════════════ */
+    .topbar {
+      background: var(--c-navy);
+      margin: 0 -16px;
+      padding: 14px 24px;
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 3px solid var(--c-sky);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    }
+
+    .title h1 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+
+    .title p {
+      margin: 0;
+      font-size: 11px;
+      color: rgba(255,255,255,.55);
+    }
+
+    /* ═══════════════════════════════════════════
+       BADGES
+    ═══════════════════════════════════════════ */
+    .badges, .inline { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: var(--r-xs);
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--c-text2);
+    }
+
+    .badge.dark {
+      background: rgba(255,255,255,.15);
+      border-color: rgba(255,255,255,.25);
+      color: rgba(255,255,255,.9);
+    }
+
+    /* ═══════════════════════════════════════════
+       MONTH TABS
+    ═══════════════════════════════════════════ */
+    .month-tabs {
+      display: flex;
+      gap: 2px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .month-tabs button {
+      padding: 5px 10px;
+      border-radius: var(--r-xs);
+      border: 1px solid rgba(255,255,255,.2);
+      background: transparent;
+      color: rgba(255,255,255,.65);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .month-tabs button:hover {
+      background: rgba(255,255,255,.12);
+      color: #fff;
+    }
+
+    .month-tabs button.active {
+      background: var(--c-sky);
+      border-color: var(--c-sky);
+      color: #fff;
+    }
+
+    /* ═══════════════════════════════════════════
+       TOOLBAR (top-right buttons)
+    ═══════════════════════════════════════════ */
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .toolbar button {
+      padding: 5px 12px;
+      border-radius: var(--r-sm);
+      border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.1);
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .toolbar button:hover { background: rgba(255,255,255,.2); color: #fff; }
+
+    .toolbar button.primary {
+      background: var(--c-sky);
+      border-color: var(--c-sky);
+      color: #fff;
+    }
+
+    .toolbar button.primary:hover { background: #1d4ed8; }
+
+    .helper { font-size: 11px; color: var(--c-muted); margin-top: 4px; }
+
+    /* ═══════════════════════════════════════════
+       STATS ROW
+    ═══════════════════════════════════════════ */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .card.stat {
+      border-radius: var(--r-md);
+      padding: 12px 14px;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      box-shadow: var(--sh-xs);
+    }
+
+    .stat .label {
+      color: var(--c-muted);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      margin-bottom: 4px;
+    }
+
+    .stat .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--c-navy);
+      line-height: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       TAB BAR
+    ═══════════════════════════════════════════ */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      margin: 14px 0 0;
+      border-bottom: 2px solid var(--c-border);
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      padding: 9px 18px;
+      border-radius: var(--r-sm) var(--r-sm) 0 0;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background: transparent;
+      color: var(--c-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      position: relative;
+      top: 2px;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: var(--c-surface);
+      color: var(--c-text);
+      border-color: var(--c-border);
+    }
+
+    .tab-btn.active {
+      background: var(--c-surface);
+      color: var(--c-navy);
+      border-color: var(--c-border);
+      border-bottom-color: var(--c-surface);
+      box-shadow: var(--sh-xs);
+    }
+
+    /* ═══════════════════════════════════════════
+       MAIN GRID
+    ═══════════════════════════════════════════ */
+    .main {
+      display: grid;
+      grid-template-columns: 1.65fr 0.9fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      padding: 16px;
+      box-shadow: var(--sh-xs);
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--c-navy);
+      letter-spacing: -0.1px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    /* ═══════════════════════════════════════════
+       WEEK BOARD
+    ═══════════════════════════════════════════ */
+    .planner-grid { display: flex; flex-direction: column; gap: 14px; }
+
+    .week-board {
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      overflow: hidden;
+      background: var(--c-surface);
+      box-shadow: var(--sh-xs);
+      position: relative; /* for holiday overlay */
+    }
+
+    .week-top,
+    .vehicle-row {
+      display: grid;
+      grid-template-columns: 120px repeat(7, minmax(100px, 1fr));
+    }
+
+    .week-top {
+      background: var(--c-navy);
+    }
+
+    .week-top > div {
+      padding: 8px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,.9);
+      text-align: center;
+      border-right: 1px solid rgba(255,255,255,.1);
+    }
+
+    .week-top > div:first-child {
+      text-align: left;
+      padding-left: 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,.6);
+    }
+
+    .week-top > div:last-child { border-right: none; }
+
+    /* Holiday coloring in header */
+    .week-top > div.is-holiday { color: #fca5a5 !important; }
+    .week-top > div.out-month-h { opacity: .45; }
+
+    .vehicle-row {
+      position: relative;
+      min-height: 80px;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .vehicle-row:last-child { border-bottom: none; }
+
+    .vehicle-label {
+      padding: 10px 10px;
+      border-right: 1px solid var(--c-border);
+      background: #f8fafc;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--c-navy);
+      display: flex;
+      align-items: center;
+      border-bottom: none;
+    }
+
+    .cell {
+      position: relative;
+      border-right: 1px solid var(--c-border);
+      background: #fff;
+      cursor: pointer;
+      transition: background .1s;
+    }
+
+    .cell:hover { background: #f8fbff; }
+    .cell:last-child { border-right: none; }
+    .cell.out-month { background: #f9fafc; }
+
+    .daynum {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      font-size: 10px;
+      color: var(--c-muted);
+    }
+
+    /* ── Trip Bars ── */
+    .bars {
+      position: absolute;
+      left: 120px;
+      right: 0;
+      top: 0;
+      height: 100%;  /* bottom: 0 대신 height로 제한 */
+      pointer-events: none;
+      overflow: hidden;  /* 넘치는 부분 숨김 */
+    }
+
+    .bar {
+      position: absolute;
+      top: 8px;
+      min-height: 62px;
+      height: auto;
+      max-height: calc(100% - 16px);  /* 차량 행 안에만 존재 */
+      border-radius: var(--r-sm);
+      border: 1px solid;
+      padding: 5px 8px;
+      overflow: hidden;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: filter .15s, box-shadow .15s;
+    }
+
+    .bar:hover {
+      filter: brightness(.95);
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+      z-index: 2;
+    }
+
+    .bar.cont-left  { border-top-left-radius: 0;  border-bottom-left-radius: 0; }
+    .bar.cont-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+    .bar .t1 {
+      font-size: 10px;
+      font-weight: 700;
+      white-space: normal;
+      line-height: 1.3;
+      max-height: 60px;
+      overflow: hidden;
+    }
+
+    .bar .t2 {
+      font-size: 10px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+      margin-top: 2px;
+    }
+
+    .bar .t3, .bar .t4 {
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 1.2;
+      margin-top: 2px;
+      white-space: normal;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .bar .risk-text { color: #2563eb; font-weight: 700; }
+
+    /* Vehicle color schemes */
+    .sky   { background: var(--c-sky-bg);   border-color: var(--c-sky-bd);   color: #1e3a8a; }
+    .green { background: var(--c-green-bg); border-color: var(--c-green-bd); color: #064e3b; }
+    .amber { background: var(--c-amber-bg); border-color: var(--c-amber-bd); color: #78350f; }
+    .rose  { background: var(--c-rose-bg);  border-color: var(--c-rose-bd);  color: #881337; }
+
+    /* ── Schedule Row ── */
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 120px repeat(7, minmax(100px, 1fr));
+      min-height: 36px;
+      border-top: 1px solid var(--c-amber-bd);
+      background: #fffdf6;
+    }
+
+    .schedule-label {
+      padding: 6px 10px;
+      border-right: 1px solid var(--c-border);
+      background: #fef3c7;
+      font-weight: 700;
+      font-size: 11px;
+      color: #78350f;
+      display: flex;
+      align-items: center;
+    }
+
+    .schedule-cell {
+      padding: 5px 7px;
+      border-right: 1px solid var(--c-border);
+      font-size: 10.5px;
+      line-height: 1.4;
+      color: #7c3d12;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .schedule-cell:last-child { border-right: none; }
+
+    .schedule-tag {
+      display: inline-block;
+      margin-right: 3px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--c-amber-bd);
+      background: var(--c-amber-bg);
+      font-size: 10px;
+    }
+
+    /* ── Holiday Overlay ── */
+    .holiday-overlay {
+      position: absolute;
+      left: 120px;
+      right: 0;
+      top: 36px; /* below week-top header row */
+      bottom: 36px; /* above schedule row */
+      pointer-events: none;
+    }
+
+    .holiday-bar {
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      border-radius: var(--r-sm);
+      border: 1px solid #fca5a5;
+      background: rgba(254,242,242,.88);
+      color: #b91c1c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 11px;
+      backdrop-filter: blur(1px);
+    }
+
+    /* ═══════════════════════════════════════════
+       SIDE PANEL
+    ═══════════════════════════════════════════ */
+    .panel { display: flex; flex-direction: column; gap: 12px; }
+
+    .section-sub {
+      margin: -6px 0 10px;
+      font-size: 11px;
+      color: var(--c-muted);
+      line-height: 1.5;
+    }
+
+    .form-grid { display: grid; gap: 8px; }
+
+    .two-col   { display: grid; grid-template-columns: 1fr 1fr;         gap: 8px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr;     gap: 8px; }
+
+    /* ── Inputs ── */
+    .input, .select, .textarea {
+      width: 100%;
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      background: var(--c-surface);
+      color: var(--c-text);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .input:focus, .select:focus, .textarea:focus {
+      outline: none;
+      border-color: var(--c-sky);
+      box-shadow: 0 0 0 2px rgba(37,99,235,.12);
+    }
+
+    .input::placeholder, .textarea::placeholder { color: var(--c-muted); }
+
+    textarea.textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    /* ── Buttons ── */
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    /* Default button */
+    .form-grid button,
+    .inline > button:not(.primary):not(.active),
+    .toolbar > button,
+    .panel button:not(.primary):not(.active) {
+      padding: 7px 13px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--c-border2);
+      background: var(--c-surface);
+      color: var(--c-text2);
+      font-size: 12px;
+      font-weight: 600;
+      transition: all .15s;
+    }
+
+    .form-grid button:hover,
+    .inline > button:not(.primary):not(.active):hover,
+    .panel button:not(.primary):not(.active):hover {
+      background: var(--c-bg);
+      border-color: var(--c-text2);
+      color: var(--c-text);
+    }
+
+    button.primary, button.active {
+      padding: 7px 14px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--c-navy);
+      background: var(--c-navy);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all .15s;
+    }
+
+    button.primary:hover, button.active:hover {
+      background: var(--c-navy2);
+      border-color: var(--c-navy2);
+    }
+
+    button:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+    }
+
+    /* ── Chips (traveler badges) ── */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+    .chips .badge {
+      background: var(--c-sky-bg);
+      border-color: var(--c-sky-bd);
+      color: var(--c-navy);
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+
+    /* ═══════════════════════════════════════════
+       SCHEDULE PICKER (연가/공휴일 등록)
+    ═══════════════════════════════════════════ */
+    .schedule-picker {
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      background: #fafcff;
+      padding: 10px 12px;
+    }
+
+    .schedule-picker summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--c-text2);
+    }
+
+    .schedule-picker summary::-webkit-details-marker { display: none; }
+
+    .person-chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .person-chip-grid label {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .person-chip-grid input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .person-chip-grid span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 10px;
+      border: 1px solid var(--c-border2);
+      border-radius: var(--r-xs);
+      background: var(--c-surface);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: all .12s;
+    }
+
+    .person-chip-grid span:hover { border-color: var(--c-sky); color: var(--c-sky); }
+
+    .person-chip-grid input:checked + span {
+      background: var(--c-navy);
+      color: #fff;
+      border-color: var(--c-navy);
+    }
+
+    #schedulePeopleSelect {
+      max-height: 160px;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: var(--r-sm);
+      margin-top: 8px;
+    }
+
+    /* ═══════════════════════════════════════════
+       LIST ITEMS
+    ═══════════════════════════════════════════ */
+    .list { display: flex; flex-direction: column; gap: 8px; }
+
+    .list-item {
+      border-radius: var(--r-md);
+      padding: 12px 14px;
+      border: 1px solid var(--c-border);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      transition: box-shadow .15s;
+    }
+
+    .list-item:hover { box-shadow: var(--sh-sm); }
+
+    .list-item.sky   { background: var(--c-sky-bg);   border-color: var(--c-sky-bd); }
+    .list-item.green { background: var(--c-green-bg); border-color: var(--c-green-bd); }
+    .list-item.amber { background: var(--c-amber-bg); border-color: var(--c-amber-bd); }
+    .list-item.rose  { background: var(--c-rose-bg);  border-color: var(--c-rose-bd); }
+
+    .list-item .maintext { flex: 1; }
+
+    .list-item h3 {
+      margin: 0 0 5px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .list-item p {
+      margin: 2px 0;
+      font-size: 12px;
+      color: var(--c-text2);
+    }
+
+    /* ═══════════════════════════════════════════
+       STATUS BADGES
+    ═══════════════════════════════════════════ */
+    .status {
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: var(--r-xs);
+      padding: 3px 8px;
+      border: 1px solid;
+      display: inline-block;
+    }
+
+    .status-planned  { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
+    .status-complete { background: var(--c-ok-bg); color: var(--c-ok-text); border-color: var(--c-ok-bd); }
+    .status-delay    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .status-waiting  { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .status-inprogress { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+    .status-postponed { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+
+    /* ═══════════════════════════════════════════
+       OK / DANGER ISSUE BOXES
+    ═══════════════════════════════════════════ */
+    .ok {
+      background: var(--c-ok-bg);
+      color: var(--c-ok-text);
+      border: 1px solid var(--c-ok-bd);
+      border-radius: var(--r-sm);
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .danger {
+      background: var(--c-rose-bg);
+      color: #9b1c1c;
+      border: 1px solid var(--c-rose-bd);
+      border-radius: var(--r-sm);
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    /* ═══════════════════════════════════════════
+       TABLES (history, analytics, docs)
+    ═══════════════════════════════════════════ */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .table th {
+      background: #f4f7fb;
+      color: var(--c-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      padding: 9px 8px;
+      border-bottom: 2px solid var(--c-border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .table td {
+      border-bottom: 1px solid #f0f3f8;
+      padding: 9px 8px;
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    .table tr:hover td { background: #f8fbff; }
+    .table tr:last-child td { border-bottom: none; }
+
+    /* ── Docs-specific table - optimized for header text length ── */
+    .docs-table th:nth-child(1),
+    .docs-table td:nth-child(1)  { min-width:55px; width:55px; white-space:nowrap; text-align:center; font-weight:600; font-size:12px; } /* 남은일수 */
+    .docs-table th:nth-child(2),
+    .docs-table td:nth-child(2)  { min-width:50px; width:50px; white-space:nowrap; text-align:center; font-size:11px; } /* 상태 */
+    .docs-table th:nth-child(3),
+    .docs-table td:nth-child(3)  { min-width:70px; width:70px; white-space:nowrap; font-weight:600; font-size:12px; } /* 접수 문서 */
+    .docs-table th:nth-child(4),
+    .docs-table td:nth-child(4)  { min-width:60px; width:60px; white-space:nowrap; text-align:center; font-size:11px; } /* 사전위험성 */
+    .docs-table th:nth-child(5),
+    .docs-table td:nth-child(5)  { min-width:60px; width:60px; white-space:nowrap; text-align:center; font-size:11px; } /* 코드 */
+    .docs-table th:nth-child(6),
+    .docs-table td:nth-child(6)  { min-width:50px; width:50px; white-space:nowrap; text-align:center; font-size:11px; } /* 지역 */
+    .docs-table th:nth-child(7),
+    .docs-table td:nth-child(7)  { min-width:55px; width:55px; white-space:nowrap; font-size:11px; } /* 담당자 */
+    .docs-table th:nth-child(8),
+    .docs-table td:nth-child(8)  { min-width:110px; max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; } /* 사업장명 */
+    .docs-table th:nth-child(9),
+    .docs-table td:nth-child(9)  { min-width:60px; max-width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; } /* 배출구 */
+    .docs-table th:nth-child(10),
+    .docs-table td:nth-child(10)  { min-width:70px; max-width:90px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; } /* 시험항목 */
+    .docs-table th:nth-child(11),
+    .docs-table td:nth-child(11) { min-width:120px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; } /* 시험내용 */
+    .docs-table th:nth-child(12),
+    .docs-table td:nth-child(12) { min-width:85px; width:85px; white-space:nowrap; text-align:center; font-size:11px; } /* 결과통보일 */
+    .docs-table th:nth-child(13),
+    .docs-table td:nth-child(13) { min-width:100px; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; } /* 비고 */
+    .docs-table th:nth-child(14),
+    .docs-table td:nth-child(14) { min-width:60px; width:60px; text-align:center; } /* 연기/완료 버튼 */
+    .docs-table th:nth-child(15),
+    .docs-table td:nth-child(15) { min-width:60px; width:60px; text-align:center; } /* 삭제 버튼 */
+    /* 문서 리스트에서는 비고 열 숨김, 연기 리스트에서만 표시 */
+    #docsView .docs-table th:nth-child(13),
+    #docsView .docs-table td:nth-child(13) { display:none; }
+    .docs-table th:nth-child(13),
+    .docs-table td:nth-child(13) { min-width:80px; width:80px; text-align:center; } /* 연기/연기해제 */
+    .docs-table th:nth-child(14),
+    .docs-table td:nth-child(14) { min-width:65px; width:65px; text-align:center; } /* 삭제 */
+
+    /* ═══════════════════════════════════════════
+       DOC SUMMARY CARDS
+    ═══════════════════════════════════════════ */
+    .doc-summary {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .doc-summary .item {
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 10px 12px;
+      background: var(--c-surface);
+    }
+
+    .doc-summary .k {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--c-muted);
+      margin-bottom: 4px;
+    }
+
+    .doc-summary .v {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--c-navy);
+      line-height: 1;
+    }
+
+    /* ═══════════════════════════════════════════
+       DOC PICKER LIST
+    ═══════════════════════════════════════════ */
+    .doc-pick-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 58vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .doc-pick-item {
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+      padding: 12px 14px;
+      cursor: pointer;
+      background: var(--c-surface);
+      transition: all .15s;
+    }
+
+    .doc-pick-item:hover { background: var(--c-sky-bg); border-color: var(--c-sky-bd); }
+
+    .doc-pick-item h3 {
+      margin: 0 0 5px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .doc-pick-item p {
+      margin: 3px 0;
+      font-size: 12px;
+      color: var(--c-text2);
+    }
+
+    .doc-days-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 80px;
+      padding: 4px 10px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--c-text);
+      white-space: nowrap;
+    }
+
+    .doc-days-badge.alert {
+      background: #fef3c7;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+
+    /* ═══════════════════════════════════════════
+       MODALS
+    ═══════════════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-backdrop.hidden { display: none !important; }
+
+    .modal-panel {
+      width: min(900px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-xl);
+      padding: 22px;
+      box-shadow: var(--sh-lg);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .modal-header h2 { font-size: 15px; color: var(--c-navy); }
+
+    .modal-header .input {
+      width: 280px;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .modal-item {
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-sm);
+      padding: 10px 12px;
+    }
+
+    .modal-item strong {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--c-muted);
+      margin-bottom: 4px;
+    }
+
+    /* ═══════════════════════════════════════════
+       FILTER ROW
+    ═══════════════════════════════════════════ */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filter-row .select { max-width: 240px; }
+
+    /* ═══════════════════════════════════════════
+       MISC
+    ═══════════════════════════════════════════ */
+    .hidden { display: none !important; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--c-border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--c-muted); }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════ */
+    @media (max-width: 1380px) {
+      .stats { grid-template-columns: repeat(4, 1fr); }
+      .main { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 1000px) {
+      .week-top,
+      .vehicle-row,
+      .schedule-row { grid-template-columns: 100px repeat(7, minmax(90px, 1fr)); }
+      .bars { left: 100px; }
+      .holiday-overlay { left: 100px; }
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 0 10px 24px; }
+      .topbar { padding: 12px 14px; flex-direction: column; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .two-col, .three-col, .modal-grid { grid-template-columns: 1fr; }
+      .title h1 { font-size: 15px; }
+    }
+
+    /* ═══════════════════════════════════════════
+       PRINT
+    ═══════════════════════════════════════════ */
+    @media print {
+      /* 모든 UI 요소 숨기기 */
+      .toolbar, .panel, .print-hide, .tab-bar, .filter-row, .stats { display: none !important; }
+      
+      /* 상단바(제목, 월탭 등) 완전 숨김 */
+      .topbar { display: none !important; }
+      
+      /* 모든 탭 뷰 숨기기 */
+      #historyView, #analyticsView, #docsView, #delayedDocsView, #completedDocsView, #updateHistoryView { display: none !important; }
+      
+      /* 배정 보드만 표시 */
+      #plannerView { display: block !important; }
+      #plannerView .main { display: block !important; }
+      
+      /* planner-grid 내에서 주별 차량 배차표만 표시 */
+      .planner-grid { display: block !important; }
+      .planner-grid > .card:nth-child(2) { display: block !important; } /* 주별 차량 배차표 */
+      .planner-grid > .card:nth-child(3) { display: none !important; }  /* 날짜 상세 숨김 */
+      
+      body { background: #fff; margin: 0; padding: 0; }
+      .wrap { max-width: none; padding: 0; margin: 0; }
+      .card { box-shadow: none; border: none; margin: 0; padding: 12px !important; }
+      .card-header { margin-bottom: 8px; }
+      
+      /* A4 가로 설정 */
+      @page { 
+        size: A4 landscape; 
+        margin: 8mm; 
+      }
+      
+      /* 크기를 키워서 페이지 꽉 채우기 */
+      #weekBoards { font-size: 11px; }
+      .week-board { margin-bottom: 8px; }
+      .card { padding: 8px !important; }
+      .card-header { font-size: 12px; margin-bottom: 6px; }
+      .card-header h2 { font-size: 13px; font-weight: 600; }
+      
+      /* 주차 헤더 */
+      .week-top { padding: 4px 0; font-size: 10px; font-weight: 600; }
+      
+      /* 차량 행 - 높이 증가 */
+      .vehicle-row { min-height: 42px; }
+      .vehicle-label { font-size: 10px; padding: 3px 6px; font-weight: 600; }
+      
+      /* bars 컨테이너를 차량 행 높이에 맞춤 */
+      .bars { 
+        height: 42px !important;  /* vehicle-row 높이와 동일 */
+        overflow: hidden !important;
+      }
+      
+      /* 셀 */
+      .cell { min-height: 42px; font-size: 9px; }
+      
+      /* 출장 바 - 텍스트가 칸 안에 들어가도록 크기 조정 */
+      .bar { 
+        font-size: 8px; 
+        padding: 2px 4px; 
+        top: 3px !important;            /* 상단 여백 3px */
+        height: 36px !important;        /* 고정 높이 */
+        max-height: 36px !important;    /* 최대 높이 제한 */
+        min-height: 36px;
+        line-height: 1.2;
+        overflow: hidden;
+        word-wrap: break-word;
+        word-break: break-word;
+      }
+      .bar .t1 { 
+        font-size: 8px; 
+        font-weight: 600; 
+        margin-bottom: 1px;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bar .t2 { 
+        font-size: 7px; 
+        margin-bottom: 1px;
+        white-space: normal;
+        overflow: hidden;
+      }
+      .bar .t3 { 
+        font-size: 7px;
+        white-space: normal;
+        overflow: hidden;
+      }
+      
+      /* 연가 행 */
+      .schedule-row { min-height: 28px; }
+      .schedule-cell { font-size: 9px; padding: 2px; }
+      .schedule-label { font-size: 10px; padding: 3px 6px; font-weight: 600; }
+      
+      /* 페이지 나눔 강제: 1-3주차 함께 / 4-5주차 함께 */
+      /* 1-3주차: 절대 나누지 않음 */
+      .week-board:nth-child(1), 
+      .week-board:nth-child(2),
+      .week-board:nth-child(3) { 
+        page-break-after: avoid !important;
+        page-break-before: avoid !important;
+        page-break-inside: avoid !important;
+        break-after: avoid !important;
+        break-before: avoid !important;
+        break-inside: avoid !important;
+      }
+      
+      /* 3주차 다음에 반드시 페이지 나눔 */
+      .week-board:nth-child(3) { 
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      
+      /* 4주차 앞에 반드시 페이지 나눔 */
+      .week-board:nth-child(4) { 
+        page-break-before: always !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-before: page !important;
+        break-after: avoid !important;
+        break-inside: avoid !important;
+      }
+      
+      /* 5주차: 4주차와 함께 */
+      .week-board:nth-child(5) { 
+        page-break-before: avoid !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-before: avoid !important;
+        break-after: avoid !important;
+        break-inside: avoid !important;
+      }
+      
+      /* 기본: 각 주차 블록 안에서 페이지 나눔 방지 */
+      .week-board { 
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══════════ GITHUB 업로드 패널 ══════════ -->
+  <div id="ghUploadSection">
+    <h3>☁️ GitHub 업로드 <span style="font-size:11px;font-weight:400;opacity:.7;">(데이터 저장 후 팀원들이 자동으로 최신 데이터를 받아볼 수 있습니다)</span></h3>
+    <div class="gh-row">
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:11px;margin-bottom:3px;">GitHub 저장소 (owner/repo)</div>
+        <input type="text" id="ghOwnerRepo" placeholder="예: joungwoo-trip/trip-calendar" style="width:220px;" />
+      </div>
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:11px;margin-bottom:3px;">Personal Access Token</div>
+        <div class="gh-token-wrap">
+          <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" style="width:200px;" />
+          <button class="gh-toggle-pw" onclick="toggleTokenVisibility()">👁</button>
+        </div>
+      </div>
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:11px;margin-bottom:3px;">업데이트 담당자</div>
+        <input type="text" id="ghUpdatedBy" placeholder="예: 정우진" style="width:100px;" />
+      </div>
+      <div>
+        <div style="color:rgba(255,255,255,.7);font-size:11px;margin-bottom:3px;">업데이트 메모</div>
+        <input type="text" id="ghUpdateNote" placeholder="예: 4월 출장 업데이트" style="width:180px;" />
+      </div>
+      <button id="ghUploadBtn" onclick="uploadToGitHub()">☁️ GitHub에 업로드</button>
+    </div>
+    <div id="ghStatusMsg"></div>
+    <div class="gh-help">💡 Token 저장은 브라우저에만 보관됩니다. 공용PC에서는 매번 입력하세요. | Scope: <code style="background:rgba(255,255,255,.1);padding:1px 4px;border-radius:3px;">repo</code> 권한 필요</div>
+  </div>
+
+  <!-- ══════════ TOP BAR ══════════ -->
+  <div class="topbar">
+    <div class="title">
+      <div class="badges" style="margin-bottom:6px;">
+        <span class="badge dark">출장일정/이력 관리</span>
+        <span class="badge" style="background:#dc2626;color:white;">🔐 관리자 모드</span>
+        <span class="badge dark">브라우저 실행용</span>
+        <span class="badge dark">v24 안정본</span>
+        <button onclick="showDataRecovery()" style="margin-left:10px;padding:4px 10px;font-size:11px;background:#10b981;color:white;border:none;border-radius:4px;cursor:pointer;">🔧 데이터 복구</button>
+      </div>
+      <h1>🏭 충청권환경본부 대기관리2부 출장 배정 보드</h1>
+      <p style="font-size:13px;color:var(--c-muted);margin-top:4px;">📅 시행일자: 2026. 4. 24.(목) 이후 출장건</p>
+      <p>입력 중 전체 화면 재계산을 줄여 렉을 완화한 브라우저 단독 실행용입니다.</p>
+    </div>
+    <div style="min-width:340px;width:46%;max-width:740px;">
+      <div class="month-tabs" id="monthTabs"></div>
+      <div class="toolbar print-hide">
+        <input id="fileInput" type="file" accept="application/json" class="hidden" />
+        <input id="docExcelInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" />
+        <button id="importBtn">불러오기</button>
+        <button id="exportBtn">저장/내보내기</button>
+        <button id="importDocsBtn">📊 엑셀 업로드</button>
+        <button id="undoUploadBtn" style="background:#ef4444;color:white;">↩ 업로드 되돌리기</button>
+        <button class="primary" id="pdfBtn">🖨 PDF 출력</button>
+        <button id="ghQuickUploadBtn" style="background:#10b981;color:white;font-weight:700;" title="현재 데이터를 GitHub에 업로드">☁️ GitHub 업로드</button>
+      </div>
+      <div class="helper print-hide" style="margin-top:6px;">입력창 타이핑 시에는 검증만 부분 갱신됩니다.</div>
+    </div>
+  </div>
+
+  <!-- ══════════ STATS ══════════ -->
+  <div class="stats">
+    <div class="card stat"><div class="label">기준월</div><div class="value" id="statMonth"></div></div>
+    <div class="card stat"><div class="label">이번 달 계획건</div><div class="value" id="statTrips"></div></div>
+    <div class="card stat"><div class="label">출장자</div><div class="value" id="statTravelers"></div></div>
+    <div class="card stat"><div class="label">선택자 월 출장일수</div><div class="value" id="statFilteredDays"></div></div>
+    <div class="card stat"><div class="label">누적 출장일수</div><div class="value" id="statTotalDays"></div></div>
+    <div class="card stat"><div class="label">최다/최소 동행</div><div class="value" id="statBuddy"></div></div>
+    <div class="card stat" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);"><div class="label">👑 이달의 출장왕</div><div class="value" id="statTopTravelers" style="font-size:14px;font-weight:700;color:#92400e;"></div></div>
+    <div class="card stat"><div class="label">문서 접수건</div><div class="value" id="statDocs"></div></div>
+  </div>
+
+  <!-- ══════════ TAB BAR ══════════ -->
+  <div class="tab-bar print-hide">
+    <button id="showPlannerBtn"       class="tab-btn active">📅 배정 보드</button>
+    <button id="showHistoryBtn"       class="tab-btn">📋 출장 이력</button>
+    <button id="showAnalyticsBtn"     class="tab-btn">📊 통계</button>
+    <button id="showDocsBtn"          class="tab-btn">📄 출장 리스트</button>
+    <button id="showAllDocsBtn"       class="tab-btn">📑 전체 문서</button>
+    <button id="showDelayedDocsBtn"   class="tab-btn">⏸️ 연기 리스트</button>
+    <button id="showCompletedDocsBtn" class="tab-btn">✅ 완료 리스트</button>
+    <button id="showUpdateHistoryBtn" class="tab-btn">📝 업데이트 이력</button>
+    <button id="showAiBtn"            class="tab-btn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-weight:700;">🤖 AI 배정</button>
+  </div>
+
+  <!-- ══════════ PLANNER VIEW ══════════ -->
+  <div id="plannerView" class="main">
+
+    <!-- Left: Board + Detail -->
+    <div class="planner-grid">
+
+      <!-- Person filter -->
+      <div class="card print-hide" style="padding:12px 16px;">
+        <div class="filter-row">
+          <select class="select" id="personFilter" style="max-width:260px;"></select>
+          <button id="clearFilterBtn">필터 해제</button>
+          <span class="badge" id="filterInfo">전체 일정 표시</span>
+        </div>
+      </div>
+
+      <!-- Weekly board -->
+      <div class="card" style="padding:14px;">
+        <div class="card-header">
+          <h2>주별 차량 배차표</h2>
+          <div class="badges">
+            <span class="badge">더블클릭: 상세</span>
+            <span class="badge">클릭: 날짜 상세</span>
+          </div>
+        </div>
+        <div id="weekBoards"></div>
+      </div>
+
+      <!-- Day detail -->
+      <div class="card">
+        <div class="card-header">
+          <h2 id="detailTitle">해당일 상세</h2>
+          <div class="inline" id="availableVehicles"></div>
+        </div>
+        <div id="selectedTrips" class="list"></div>
+      </div>
+
+    </div><!-- /planner-grid -->
+
+    <!-- Right: Sidebar -->
+    <div class="panel print-hide">
+
+      <!-- 출장건 등록 -->
+      <div class="card">
+        <div class="card-header"><h2>출장건 등록</h2></div>
+        <p class="section-sub">날짜는 시작일/종료일 2개만 입력합니다.</p>
+        <div class="form-grid">
+          <div class="inline">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="tripRisk" style="width:14px;height:14px;accent-color:var(--c-sky);" />
+              사전위험성 검토 출장
+              <div class="helper" style="font-size:11px;margin-top:2px;">💡 본 출장 3일 전 필수 사전 방문</div>
+            </label>
+          </div>
+          <div class="two-col">
+            <input class="input" id="tripDate"    type="date" placeholder="출장 시작일" />
+            <input class="input" id="tripEndDate" type="date" placeholder="출장 종료일" />
+          </div>
+          <div class="two-col">
+            <div>
+              <input class="input" id="tripDocNo" placeholder="접수 문서번호 (복수: 866,1692 형식)" />
+              <div class="helper" style="font-size:11px;margin-top:2px;">💡 복수 문서: 쉼표로 구분 (예: 866,1692)</div>
+            </div>
+            <select class="select" id="tripVehicle"></select>
+          </div>
+          <div class="two-col">
+            <input class="input" id="tripOwner"  placeholder="담당자" />
+            <div></div>
+          </div>
+          <div class="two-col">
+            <input class="input" id="tripRegion" placeholder="지역" />
+            <div>
+              <input class="input" id="tripDestination" placeholder="사업장명 (복수: A공장,B공장 형식)" />
+              <div class="helper" style="font-size:11px;margin-top:2px;">💡 복수 사업장: 쉼표로 구분</div>
+            </div>
+          </div>
+          <div class="two-col">
+            <input class="input" id="tripOutlet"   placeholder="배출구" />
+            <input class="input" id="tripTestItem" placeholder="시험항목" />
+          </div>
+          <textarea class="textarea" id="tripTask" placeholder="시험내용 / 출장내용"></textarea>
+          <div class="three-col">
+            <select class="select" id="tripLeader"></select>
+            <select class="select" id="tripMember1"></select>
+            <select class="select" id="tripMember2"></select>
+          </div>
+          <div class="three-col">
+            <select class="select" id="tripMember3"></select>
+            <select class="select" id="tripMember4"></select>
+            <select class="select" id="tripMember5"></select>
+          </div>
+          <textarea class="textarea" id="tripNote" placeholder="비고" style="min-height:52px;"></textarea>
+          <div id="tripIssueBox"></div>
+          <div class="inline">
+            <button id="tripListBtn">출장리스트</button>
+            <button onclick="clearForm();renderIssueBox();" style="background:#6b7280;color:white;">🔄 초기화</button>
+            <button class="primary" id="addTripBtn">등록</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 출장자 관리 -->
+      <div class="card">
+        <div class="card-header"><h2>출장자 관리</h2></div>
+        <div class="form-grid">
+          <div style="display:flex;gap:8px;">
+            <input class="input" id="newTraveler" placeholder="이름 입력" />
+            <button id="addTravelerBtn">추가</button>
+          </div>
+          <div class="chips" id="travelerChips"></div>
+        </div>
+      </div>
+
+      <!-- 공휴일 / 연가 / 교육 / 기타 -->
+      <div class="card">
+        <div class="card-header"><h2>공휴일 / 연가 / 교육 / 기타</h2></div>
+        <p class="section-sub">대상자 선택 후 등록. 공휴일은 전체 출장 불가.</p>
+        <div class="form-grid">
+          <div class="two-col">
+            <select class="select" id="scheduleType">
+              <option value="holiday">공휴일</option>
+              <option value="leave">연가</option>
+              <option value="education">교육</option>
+              <option value="other">기타</option>
+            </select>
+          </div>
+          <div class="two-col">
+            <input class="input" id="scheduleDate" type="date" placeholder="시작일" />
+            <input class="input" id="scheduleEndDate" type="date" placeholder="종료일 (선택)" />
+          </div>
+          <div id="scheduleNameWrap">
+            <input class="input" id="scheduleName" placeholder="일정명 (예: 어린이날, 팀교육)" />
+          </div>
+          <div id="schedulePeopleWrap" class="schedule-picker">
+            <div class="helper" style="margin-bottom:8px;font-weight:600;">대상자 선택</div>
+            <div id="schedulePeopleChecks" class="person-chip-grid"></div>
+          </div>
+          <div class="inline">
+            <button id="addScheduleBtn" type="button">일정 추가</button>
+          </div>
+          <div class="list" id="scheduleList"></div>
+        </div>
+      </div>
+
+      <!-- 이번 달 계획 -->
+      <div class="card">
+        <div class="card-header"><h2>이번 달 계획 리스트</h2></div>
+        <div class="list" id="monthList"></div>
+      </div>
+
+    </div><!-- /panel -->
+
+  </div><!-- /plannerView -->
+
+  <!-- ══════════ HISTORY VIEW ══════════ -->
+  <div id="historyView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>출장 완료 이력</h2>
+        <div class="inline">
+          <input class="input" id="historySearch" placeholder="문서번호 / 출장지 / 출장자 검색" style="width:280px;" />
+        </div>
+      </div>
+      <div class="list" id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ ANALYTICS VIEW ══════════ -->
+
+  <!-- ══════════ ALL DOCS VIEW (전체 문서) ══════════ -->
+  <div id="allDocsView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>📑 전체 문서 리스트</h2>
+        <div class="inline" style="gap:8px;">
+          <span class="badge" id="allDocsCount">총 0건</span>
+          <button id="clearAllDocsFilter" style="background:#6b7280;color:white;">🔄 필터 초기화</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table docs-table">
+          <thead>
+            <tr>
+              <th>남은일수</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>상태</span>
+                  <select id="allDocsStatusFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;">
+                    <option value="">전체</option>
+                    <option value="대기">대기</option>
+                    <option value="진행중">진행중</option>
+                    <option value="완료">완료</option>
+                    <option value="연기">연기</option>
+                  </select>
+                </div>
+              </th>
+              <th>접수 문서</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>코드</span>
+                  <select id="allDocsCodeFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>지역</span>
+                  <select id="allDocsRegionFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>담당자</span>
+                  <select id="allDocsOwnerFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>사업장명</span>
+                  <input id="allDocsSearch" type="text" class="input" placeholder="검색..." style="font-size:11px;padding:2px 6px;min-width:120px;" />
+                </div>
+              </th>
+              <th>배출구</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>시험항목</span>
+                  <select id="allDocsTestItemFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>시험내용</th>
+              <th>결과통보일</th>
+              <th>비고</th>
+              <th>연기</th>
+              <th>삭제</th>
+            </tr>
+          </thead>
+          <tbody id="allDocsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ANALYTICS VIEW ══════════ -->
+  <div id="analyticsView" class="hidden">
+    <div class="main" style="grid-template-columns:1fr 1fr; margin-top:14px;">
+      <div class="card">
+        <div class="card-header"><h2>월별/누적 출장일수</h2></div>
+        <table class="table">
+          <thead><tr><th>출장자</th><th>이번 달</th><th>누적</th></tr></thead>
+          <tbody id="monthlyDaysTable"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>동행 빈도</h2></div>
+        <table class="table">
+          <thead>
+            <tr><th>출장자</th><th>가장 많이</th><th>횟수</th><th>가장 적게</th><th>횟수</th></tr>
+          </thead>
+          <tbody id="buddyTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ DOCS VIEW ══════════ -->
+  <div id="docsView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>📄 출장 리스트 (대기+진행중)</h2>
+        <div class="inline" style="gap:8px;">
+          <span class="badge" id="docsCount">총 0건</span>
+          <button id="clearDocsFilter" style="background:#6b7280;color:white;">🔄 필터 초기화</button>
+        </div>
+      </div>
+      <div class="doc-summary" id="docSummary"></div>
+      <div style="overflow-x:auto;">
+        <table class="table docs-table">
+          <thead>
+            <tr>
+              <th>남은일수</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>상태</span>
+                  <select id="docsStatusFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;" onchange="renderDocs()">
+                    <option value="">전체</option>
+                    <option value="대기">대기</option>
+                    <option value="진행중">진행중</option>
+                    <option value="연기">연기</option>
+                  </select>
+                </div>
+              </th>
+              <th>접수 문서</th>
+              <th>사전위험성</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>코드</span>
+                  <select id="docsCodeFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>지역</span>
+                  <select id="docsRegionFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>담당자</span>
+                  <select id="docsOwnerFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;" onchange="renderDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>사업장명</span>
+                  <input id="docsSearch" type="text" class="input" placeholder="검색..." style="font-size:11px;padding:2px 6px;min-width:100px;" oninput="renderDocs()" />
+                </div>
+              </th>
+              <th>배출구</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>시험항목</span>
+                  <select id="docsTestItemFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>시험내용</th>
+              <th>결과통보일</th>
+              <th>비고</th>
+              <th>연기</th>
+              <th>삭제</th>
+            </tr>
+          </thead>
+          <tbody id="docsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ DELAYED DOCS VIEW ══════════ -->
+  <div id="delayedDocsView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>⏸️ 연기 리스트</h2>
+        <div class="inline" style="gap:8px;">
+          <span class="badge" id="delayedCount">총 0건</span>
+          <button id="clearDelayedFilter" style="background:#6b7280;color:white;">🔄 필터 초기화</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table docs-table">
+          <thead>
+            <tr>
+              <th>남은일수</th>
+              <th>상태</th>
+              <th>접수 문서</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>코드</span>
+                  <select id="delayedCodeFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDelayedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>지역</span>
+                  <select id="delayedRegionFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDelayedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>담당자</span>
+                  <select id="delayedOwnerFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;" onchange="renderDelayedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>사업장명</span>
+                  <input id="delayedSearch" type="text" class="input" placeholder="검색..." style="font-size:11px;padding:2px 6px;min-width:100px;" />
+                </div>
+              </th>
+              <th>배출구</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>시험항목</span>
+                  <select id="delayedTestItemFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderDelayedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>시험내용</th>
+              <th>결과통보일</th>
+              <th>연기사유</th>
+              <th>연기해제</th>
+              <th>삭제</th>
+            </tr>
+          </thead>
+          <tbody id="delayedDocsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ COMPLETED DOCS VIEW ══════════ -->
+  <div id="completedDocsView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>✅ 완료 리스트</h2>
+        <div class="inline" style="gap:8px;">
+          <span class="badge" id="completedCount">총 0건</span>
+          <button id="clearCompletedFilter" style="background:#6b7280;color:white;">🔄 필터 초기화</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table docs-table">
+          <thead>
+            <tr>
+              <th>완료일</th>
+              <th>상태</th>
+              <th>접수 문서</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>코드</span>
+                  <select id="completedCodeFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderCompletedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>지역</span>
+                  <select id="completedRegionFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderCompletedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>담당자</span>
+                  <select id="completedOwnerFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:80px;" onchange="renderCompletedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>사업장명</span>
+                  <input id="completedSearch" type="text" class="input" placeholder="검색..." style="font-size:11px;padding:2px 6px;min-width:100px;" />
+                </div>
+              </th>
+              <th>배출구</th>
+              <th>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <span>시험항목</span>
+                  <select id="completedTestItemFilter" class="select" style="font-size:11px;padding:2px 4px;min-width:90px;" onchange="renderCompletedDocs()">
+                    <option value="">전체</option>
+                  </select>
+                </div>
+              </th>
+              <th>시험내용</th>
+              <th>결과통보일</th>
+              <th>비고</th>
+              <th>되돌리기</th>
+            </tr>
+          </thead>
+          <tbody id="completedDocsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ UPDATE HISTORY VIEW ══════════ -->
+  <div id="updateHistoryView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>📝 업데이트 이력</h2>
+        <div class="inline" style="gap:8px;">
+          <button id="undoUpdateHistoryBtn" style="background:#f59e0b;color:white;">↩ 마지막 변경 되돌리기</button>
+          <button id="clearUpdateHistoryBtn" style="background:#ef4444;color:white;">🗑️ 이력 초기화</button>
+          <span class="badge">엑셀 업로드 변경사항 추적</span>
+        </div>
+      </div>
+      <div class="doc-summary" id="updateHistorySummary"></div>
+      <div style="overflow-x:auto;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>업로드 일시</th>
+              <th>변경 유형</th>
+              <th>사업장명</th>
+              <th>접수 문서</th>
+              <th>변경 필드</th>
+              <th>변경 전</th>
+              <th>변경 후</th>
+            </tr>
+          </thead>
+          <tbody id="updateHistoryTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ AI 배정 VIEW ══════════ -->
+  <div id="aiView" class="hidden">
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:8px 8px 0 0;padding:14px 18px;">
+        <h2 style="color:white;margin:0;">🤖 Claude AI 출장 자동 배정</h2>
+        <div class="inline" style="gap:8px;">
+          <span style="font-size:12px;opacity:.85;">현재 대기 문서·출장자·차량 정보가 자동으로 포함됩니다</span>
+          <button onclick="aiClearHistory()" style="font-size:12px;padding:4px 10px;background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.4);">🗑 대화 초기화</button>
+        </div>
+      </div>
+
+      <!-- API Key 입력 -->
+      <div style="padding:14px 18px;border-bottom:1px solid var(--c-border);background:var(--c-surface2);">
+        <div class="inline" style="gap:8px;flex-wrap:wrap;">
+          <label style="font-size:13px;font-weight:600;color:var(--c-muted);white-space:nowrap;">Anthropic API Key</label>
+          <input id="aiApiKey" type="password" class="input" placeholder="sk-ant-..." style="flex:1;min-width:220px;font-family:monospace;font-size:13px;">
+          <button onclick="toggleAiKeyVisibility()" style="font-size:13px;padding:6px 12px;">👁 보기</button>
+          <button onclick="saveAiApiKey()" style="background:#6366f1;color:white;font-size:13px;padding:6px 12px;">💾 저장</button>
+          <span id="aiKeyStatus" style="font-size:12px;color:var(--c-muted);"></span>
+        </div>
+      </div>
+
+      <!-- 채팅 영역 -->
+      <div id="aiChatBox" style="height:320px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px;background:#fafafa;"></div>
+
+      <!-- 입력창 -->
+      <div style="padding:12px 18px;border-top:1px solid var(--c-border);display:flex;gap:8px;align-items:flex-end;">
+        <textarea id="aiInput" class="input" rows="2"
+          placeholder="예) 5월 배정해줘 / 정우진 5월 2주차 배정해줘 / 차량별로 고르게 배정해줘"
+          style="flex:1;resize:vertical;min-height:60px;font-size:14px;line-height:1.5;"></textarea>
+        <button id="aiSendBtn" onclick="aiSend()"
+          style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-weight:700;padding:10px 20px;white-space:nowrap;align-self:stretch;">
+          ✈ 전송
+        </button>
+      </div>
+    </div>
+
+    <!-- 배정안 결과 테이블 -->
+    <div id="aiResultCard" class="card hidden" style="margin-top:14px;">
+      <div class="card-header">
+        <h2>📋 AI 배정안</h2>
+        <div class="inline" style="gap:8px;">
+          <span id="aiResultCount" class="badge"></span>
+          <button id="aiRegisterAllBtn" onclick="aiRegisterAll()"
+            style="background:#10b981;color:white;font-weight:700;">✅ 전체 등록</button>
+          <button onclick="aiClearResult()" style="background:#ef4444;color:white;">🗑 초기화</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table" id="aiResultTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="aiSelectAll" onchange="aiToggleAll(this)"></th>
+              <th>날짜</th>
+              <th>차량</th>
+              <th>담당자</th>
+              <th>사업장</th>
+              <th>배출구</th>
+              <th>시험항목</th>
+              <th>출장자</th>
+              <th>AI 이유</th>
+            </tr>
+          </thead>
+          <tbody id="aiResultBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ DOC PICKER MODAL ══════════ -->
+  <div id="docPickerModal" class="modal-backdrop hidden print-hide">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 style="margin:0;">📋 출장리스트 <span id="docPickerCount" style="font-size:13px;font-weight:500;color:var(--c-muted);margin-left:6px;"></span></h2>
+        <div class="inline">
+          <input class="input" id="docPickerSearch"
+            placeholder="사업장명 / 배출구 / 시험항목 검색"
+            style="width:280px;" />
+          <button id="multiSelectBtn" style="background:#10b981;color:white;">복수 선택 등록</button>
+          <button id="closeDocPickerBtn">닫기</button>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--c-muted);margin:0 0 10px;padding:6px 10px;background:#fffbeb;border-radius:4px;border-left:3px solid #f59e0b;">
+        💡 <strong>클릭</strong>으로 체크, <strong>더블클릭</strong>으로 단일 등록, <strong>'복수 선택 등록'</strong>으로 여러 사업장 동시 등록
+      </p>
+      <div id="docPickerList" class="doc-pick-list"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ TRIP DETAIL MODAL ══════════ -->
+  <div id="tripModal" class="modal-backdrop hidden print-hide">
+    <div class="modal-panel" style="max-width:640px;">
+      <div class="modal-header">
+        <h2 id="modalTitle" style="margin:0;">출장 상세</h2>
+        <div class="inline">
+          <button id="modalEditBtn" class="hidden" style="background:#f59e0b;color:white;">✏️ 수정</button>
+          <button id="modalDeleteBtn">삭제</button>
+          <button id="closeModalBtn">닫기</button>
+        </div>
+      </div>
+      <div class="modal-grid" id="modalGrid"></div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+
+// ═══════════════════════════════════════════════════════════
+// ☁️ GitHub 업로드 시스템 (ADMIN 전용)
+// ═══════════════════════════════════════════════════════════
+const GH_TOKEN_KEY = 'gh-admin-token';
+const GH_REPO_KEY  = 'gh-admin-repo';
+
+function toggleTokenVisibility() {
+  const inp = document.getElementById('ghToken');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function setGhStatus(msg, type) {
+  const el = document.getElementById('ghStatusMsg');
+  el.textContent = msg;
+  el.className = type; // ok / err / loading
+}
+
+function buildLatestJson() {
+  const now = new Date().toISOString();
+  const updatedBy = document.getElementById('ghUpdatedBy').value.trim() || state.travelers?.[0] || '관리자';
+  const note  = document.getElementById('ghUpdateNote').value.trim();
+  return JSON.stringify({
+    version:    now,
+    updatedBy:  updatedBy,
+    updateNote: note || `${new Date().toLocaleDateString('ko-KR')} 데이터 업데이트`,
+    trips:      state.trips || [],
+    docs:       state.docs  || [],
+    schedules:  state.schedules || [],
+    travelers:  state.travelers || [],
+    updateHistory: (state.updateHistory || []).slice(0, 50) // 최근 50개만
+  }, null, 2);
+}
+
+async function uploadToGitHub() {
+  const ownerRepo = document.getElementById('ghOwnerRepo').value.trim();
+  const token     = document.getElementById('ghToken').value.trim();
+  const btn       = document.getElementById('ghUploadBtn');
+
+  if (!ownerRepo || !ownerRepo.includes('/')) {
+    setGhStatus('❌ 저장소를 "owner/repo" 형식으로 입력하세요.', 'err');
+    return;
+  }
+  if (!token) {
+    setGhStatus('❌ Personal Access Token을 입력하세요.', 'err');
+    return;
+  }
+
+  // 입력값 저장 (token은 저장하지 않음 - 보안)
+  localStorage.setItem(GH_REPO_KEY, ownerRepo);
+  if(document.getElementById('ghUpdatedBy').value.trim()){
+    localStorage.setItem('gh-updated-by', document.getElementById('ghUpdatedBy').value.trim());
+  }
+
+  const [owner, repo] = ownerRepo.split('/');
+  const filePath = 'latest.json';
+  const apiUrl   = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+
+  btn.disabled = true;
+  setGhStatus('🔄 GitHub에 업로드 중...', 'loading');
+
+  try {
+    // 1. 기존 파일 SHA 조회 (업데이트에 필요)
+    let sha = null;
+    try {
+      const getRes = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      if (getRes.ok) {
+        const existing = await getRes.json();
+        sha = existing.sha;
+      }
+    } catch (e) {}
+
+    // 2. 파일 내용 준비
+    const content = buildLatestJson();
+    const encoded = btoa(unescape(encodeURIComponent(content)));
+
+    // 3. 업로드 (PUT)
+    const body = {
+      message: `[출장보드] ${new Date().toLocaleString('ko-KR')} 데이터 업데이트`,
+      content: encoded
+    };
+    if (sha) body.sha = sha;
+
+    const putRes = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (putRes.ok) {
+      const result = await putRes.json();
+      const shortSha = (result.content?.sha || '').slice(0, 7);
+      setGhStatus(`✅ 업로드 성공! (${shortSha}) - 팀원들이 다음 자동갱신 시 반영됩니다.`, 'ok');
+      // 업데이트 노트 초기화
+      document.getElementById('ghUpdateNote').value = '';
+    } else {
+      const err = await putRes.json().catch(() => ({}));
+      const msg = err.message || `HTTP ${putRes.status}`;
+      if (putRes.status === 401) setGhStatus('❌ 인증 실패 - Token을 확인하세요.', 'err');
+      else if (putRes.status === 404) setGhStatus('❌ 저장소를 찾을 수 없습니다. owner/repo를 확인하세요.', 'err');
+      else setGhStatus(`❌ 업로드 실패: ${msg}`, 'err');
+    }
+  } catch (err) {
+    setGhStatus(`❌ 네트워크 오류: ${err.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEY='trip-browser-v4-stable-2026-04-24';
+const VEHICLES=[{id:'5881',name:'5881 카니발',short:'카니발',cls:'sky'},{id:'2559',name:'2559 쏘렌토(지하 주차)',short:'쏘렌토(2559)',cls:'green'},{id:'2555',name:'2555 쏘렌토(지상 주차)',short:'쏘렌토(2555)',cls:'amber'}];
+const DEFAULT_TRAVELERS=['강훈희','문숙','이수현','조성수','정우진','신누리','김민지','유황준','이병우','윤석래','송철민','장일웅','신현지','권신혜','한동우'];
+const WEEKDAYS=['일','월','화','수','목','금','토'];
+const state={year:new Date().getFullYear(),month:new Date().getMonth()+1,selectedDate:ymd(new Date()),travelers:[...DEFAULT_TRAVELERS],trips:[],docs:[],schedules:[],historyKeyword:'',activeTab:'planner',personFilter:'',modalTripId:null,updateHistory:[],uploadHistory:[]};
+let issueBoxTimer=null;
+function ymd(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${dd}`}
+function parseDateOnly(value){
+  if(value==null) return null;
+  let s=String(value).trim();
+  if(!s || s==='-' || s.toLowerCase()==='nan') return null;
+  s=s.replace(/[\u00A0\u200B-\u200D\uFEFF]/g,'').trim();
+  s=s.replace(/T.*/,'');
+  s=s.replace(/\s+\d{1,2}:\d{1,2}(:\d{1,2})?.*$/,'');
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m=s.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})$/);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m=s.match(/^(\d{8})$/);
+  if(m) return new Date(Number(s.slice(0,4)), Number(s.slice(4,6))-1, Number(s.slice(6,8)));
+  m=s.match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일$/);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  const d=new Date(s);
+  if(isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function dateObj(s){return parseDateOnly(s)}
+function getVehicle(id){return VEHICLES.find(v=>v.id===id)||VEHICLES[0]}
+function outletShort(v){const s=String(v||'').trim();const m=s.match(/(\d+)/);if(m)return `#${m[1]}`;return s?`#${s.replace(/배출구/g,'').trim()}`:'#-'}
+function normalizeTrip(t){return {outlet:'',testItem:'',planMonth:'',region:'',owner:'',note:'',risk:false,status:'planned',completedAt:'',resultNote:'',members:[],...t,endDate:t.endDate||t.tripDate}}
+function eachDateInRange(start,end){const arr=[];for(let d=dateObj(start);d<=dateObj(end);d.setDate(d.getDate()+1))arr.push(ymd(new Date(d)));return arr}
+function monthTrips(){return state.trips.filter(t=>new Date(t.tripDate).getMonth()+1===state.month)}
+function filteredTrips(){return monthTrips().filter(t=>!state.personFilter||(t.members||[]).includes(state.personFilter))}
+function selectedTrips(){return filteredTrips().filter(t=>t.tripDate<=state.selectedDate&&(t.endDate||t.tripDate)>=state.selectedDate).sort((a,b)=>a.docNo.localeCompare(b.docNo))}
+function countDaysForPerson(person,trips){const s=new Set();trips.forEach(t=>{const members=(t.members||[]).filter(Boolean);if(members.includes(person))eachDateInRange(t.tripDate,t.endDate||t.tripDate).forEach(d=>s.add(d))});return s.size}
+function buddyMap(){const map={};state.travelers.forEach(n=>map[n]={});state.trips.forEach(t=>{const members=(t.members||[]).filter(Boolean);members.forEach(a=>members.forEach(b=>{if(a!==b)map[a][b]=(map[a][b]||0)+1}))});return map}
+function buddyStats(name){const stats=buddyMap()[name]||{};const entries=Object.entries(stats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);if(!entries.length)return {most:'-',mostCount:0,least:'-',leastCount:0};return {most:entries[0][0],mostCount:entries[0][1],least:entries[entries.length-1][0],leastCount:entries[entries.length-1][1]}}
+function buildWeeks(year,month){const first=new Date(year,month-1,1),last=new Date(year,month,0),start=new Date(first),end=new Date(last);start.setDate(first.getDate()-first.getDay());end.setDate(last.getDate()+(6-last.getDay()));const weeks=[];let cur=new Date(start);while(cur<=end){const week=[];for(let i=0;i<7;i++){week.push(new Date(cur));cur.setDate(cur.getDate()+1)}weeks.push(week)}return weeks}
+function vehicleConflict(date,vehicle,excludeId,excludeIds){
+  const excl=excludeIds||[];
+  return state.trips.some(t=>t.id!==excludeId&&!excl.includes(t.id)&&t.tripDate<=date&&(t.endDate||t.tripDate)>=date&&t.vehicle===vehicle);
+}
+function memberConflict(date,member,excludeId,excludeIds){
+  const excl=excludeIds||[];
+  return state.trips.some(t=>t.id!==excludeId&&!excl.includes(t.id)&&t.tripDate<=date&&(t.endDate||t.tripDate)>=date&&(t.members||[]).includes(member));
+}
+function normalizeNames(text){return String(text||'').split(',').map(x=>x.trim()).filter(Boolean)}
+function getCheckedSchedulePeople(){return [...document.querySelectorAll('#schedulePeopleChecks input[type="checkbox"]:checked')].map(el=>el.value)}
+function renderSchedulePeopleSelect(){const box=document.getElementById('schedulePeopleChecks');if(!box)return;box.innerHTML='';state.travelers.forEach(name=>{const id=`schp-${name}`;const label=document.createElement('label');label.innerHTML=`<input type="checkbox" value="${name}" id="${id}" /><span>${name}</span>`;box.appendChild(label)})}
+function resetSchedulePeopleChecks(){document.querySelectorAll('#schedulePeopleChecks input[type="checkbox"]').forEach(el=>el.checked=false)}
+function toggleScheduleFields(){const type=document.getElementById('scheduleType')?.value;const wrap=document.getElementById('scheduleNameWrap');const peopleWrap=document.getElementById('schedulePeopleWrap');if(wrap)wrap.style.display=(type==='leave'?'none':'block');if(peopleWrap)peopleWrap.style.display=(type==='holiday'?'none':'block')}
+function schedulesForDate(date){return (state.schedules||[]).filter(s=>s.date===date)}
+function isHolidayDate(date){return schedulesForDate(date).some(s=>s.type==='holiday')}
+function blockedBySchedule(date,member){return schedulesForDate(date).some(s=>s.type==='holiday' || ((s.type==='leave'||s.type==='education'||s.type==='other') && (s.people||[]).includes(member)))}
+function scheduleTypeLabel(type){return ({holiday:'공휴일',leave:'연가',education:'교육',other:'기타'})[type]||'기타'}
+function scheduleSummaryForDate(date){const day=schedulesForDate(date).filter(s=>s.type!=='holiday');if(!day.length)return '';const parts=[];['leave','education','other'].forEach(type=>{const subset=day.filter(s=>s.type===type);if(!subset.length)return;const names=[...new Set(subset.flatMap(s=>s.people||[]).filter(Boolean))];parts.push(`${scheduleTypeLabel(type)}(${names.join(', ')})`)});return parts.join(', ')}
+function addSchedule(){
+  const type=document.getElementById('scheduleType').value;
+  const startDate=document.getElementById('scheduleDate').value;
+  const endDate=document.getElementById('scheduleEndDate').value;
+  const name=(type==='leave'?'연가':document.getElementById('scheduleName').value.trim());
+  const people=getCheckedSchedulePeople();
+  
+  if(!startDate){alert('시작일을 입력하세요.');return}
+  if(type!=='holiday' && !people.length){alert('공휴일이 아닌 경우 대상자를 1명 이상 선택하세요.');return}
+  
+  // ★ 종료일이 있으면 범위 내 모든 날짜에 일정 추가
+  const dates=[];
+  if(endDate && endDate>=startDate){
+    eachDateInRange(startDate,endDate).forEach(d=>dates.push(d));
+  } else {
+    dates.push(startDate);
+  }
+  
+  dates.forEach(date=>{
+    state.schedules.unshift({
+      id:`SCH-${Date.now()}-${date}`,
+      type,
+      date,
+      name:name||scheduleTypeLabel(type),
+      people
+    });
+  });
+  
+  saveState();
+  document.getElementById('scheduleName').value='';
+  document.getElementById('scheduleDate').value='';
+  document.getElementById('scheduleEndDate').value='';
+  resetSchedulePeopleChecks();
+  toggleScheduleFields();
+  renderScheduleList();
+  renderWeekBoards();
+  renderIssueBox();
+}
+function deleteSchedule(id){state.schedules=state.schedules.filter(s=>s.id!==id);saveState();renderScheduleList();renderWeekBoards();renderIssueBox()}
+
+function saveState(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function showDataRecovery(){
+  const oldKeys=['trip-browser-v3-postpone-fix','trip-browser-v2','trip-browser-v1','trip-browser'];
+  let found=[];
+  oldKeys.forEach(key=>{
+    const data=localStorage.getItem(key);
+    if(data){
+      try{
+        const parsed=JSON.parse(data);
+        const tripCount=(parsed.trips||[]).length;
+        const docCount=(parsed.docs||[]).length;
+        found.push({key,tripCount,docCount,data});
+      }catch(e){}
+    }
+  });
+  
+  if(!found.length){
+    alert('복구 가능한 이전 데이터를 찾을 수 없습니다.');
+    return;
+  }
+  
+  let msg='발견된 데이터:\n\n';
+  found.forEach((f,i)=>{
+    msg+=`${i+1}. ${f.key}\n   - 출장건: ${f.tripCount}개\n   - 문서: ${f.docCount}개\n\n`;
+  });
+  msg+='가장 최신 데이터(1번)를 복구하시겠습니까?';
+  
+  if(confirm(msg)){
+    localStorage.setItem(STORAGE_KEY,found[0].data);
+    alert('데이터 복구 완료! 페이지를 새로고침합니다.');
+    location.reload();
+  }
+}
+function seed(){const mm=String(state.month).padStart(2,'0');state.trips=[{id:1,tripDate:`${state.year}-${mm}-21`,endDate:`${state.year}-${mm}-22`,docNo:'접수-2026-041',vehicle:'5881',planMonth:`${state.year}-${mm}`,region:'충남',owner:'정우진',destination:'대한제지 #1',outlet:'1호 배출구',testItem:'먼지',task:'통합 측정',members:['정우진','문숙','이수현'],risk:true},{id:2,tripDate:`${state.year}-${mm}-22`,endDate:`${state.year}-${mm}-23`,docNo:'접수-2026-042',vehicle:'2555',planMonth:`${state.year}-${mm}`,region:'충남',owner:'장일웅',destination:'한화토탈에너지스',outlet:'A 배출구',testItem:'유속',task:'유속 측정',members:['장일웅','윤석래','신누리']},{id:3,tripDate:`${state.year}-${mm}-22`,endDate:`${state.year}-${mm}-22`,docNo:'접수-2026-043',vehicle:'2559',planMonth:`${state.year}-${mm}`,region:'충남',owner:'신현지',destination:'태안발전 #3',outlet:'3호 배출구',testItem:'먼지',task:'먼지 측정',members:['신현지','유황준','송철민']}].map(normalizeTrip);state.schedules=[];state.docs=[{id:'D1',docNo:'접수-2026-041',planMonth:`${state.year}-${mm}`,riskMonth:`${state.year}-${mm}`,region:'충남',owner:'정우진',destination:'대한제지 #1',outlet:'1호 배출구',testItem:'먼지',task:'통합 측정',resultDueDate:`${state.year}-${mm}-25`,delayReason:'',delayed:false,csvProgress:''},{id:'D2',docNo:'접수-2026-042',planMonth:`${state.year}-${mm}`,riskMonth:'',region:'충남',owner:'장일웅',destination:'한화토탈에너지스',outlet:'A 배출구',testItem:'유속',task:'유속 측정',resultDueDate:`${state.year}-${mm}-24`,delayReason:'',delayed:false,csvProgress:''}]}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      // 기존 데이터 마이그레이션 시도
+      const oldKeys=['trip-browser-v3-postpone-fix','trip-browser-v2','trip-browser-v1'];
+      for(const oldKey of oldKeys){
+        const oldData=localStorage.getItem(oldKey);
+        if(oldData){
+          console.log('기존 데이터를 발견했습니다. 마이그레이션 중...');
+          localStorage.setItem(STORAGE_KEY,oldData);
+          Object.assign(state,JSON.parse(oldData));
+          state.trips=(state.trips||[]).map(normalizeTrip);
+          saveState();
+          console.log('마이그레이션 완료!');
+          return;
+        }
+      }
+      seed();saveState();return;
+    }
+    Object.assign(state,JSON.parse(raw));
+    state.trips=(state.trips||[]).map(normalizeTrip);
+    if(!state.docs)state.docs=[];
+    if(!state.travelers || !Array.isArray(state.travelers) || !state.travelers.length){
+      state.travelers=[...DEFAULT_TRAVELERS];
+    }
+  }catch(e){
+    localStorage.removeItem(STORAGE_KEY);
+    seed();
+    saveState();
+  }
+}
+function currentTripForm(){const tripDate=document.getElementById('tripDate').value;return {tripDate:tripDate,endDate:document.getElementById('tripEndDate').value||tripDate,docNo:document.getElementById('tripDocNo').value.trim(),vehicle:document.getElementById('tripVehicle').value,planMonth:(tripDate||'').slice(0,7),owner:document.getElementById('tripOwner').value.trim(),region:document.getElementById('tripRegion').value.trim(),destination:document.getElementById('tripDestination').value.trim(),outlet:document.getElementById('tripOutlet').value.trim(),testItem:document.getElementById('tripTestItem').value.trim(),task:document.getElementById('tripTask').value.trim(),members:[document.getElementById('tripLeader').value,document.getElementById('tripMember1').value,document.getElementById('tripMember2').value,document.getElementById('tripMember3').value,document.getElementById('tripMember4').value,document.getElementById('tripMember5').value],note:document.getElementById('tripNote').value.trim(),risk:document.getElementById('tripRisk').checked,status:'planned',completedAt:'',resultNote:''}}
+function formIssues(){
+  const f=currentTripForm(),issues=[],members=f.members.filter(Boolean);
+  if(!f.tripDate||!f.endDate||!f.docNo||!f.vehicle||!f.destination||!f.outlet||!f.task)
+    issues.push('시작일, 종료일, 문서번호, 차량, 사업장명, 배출구, 시험내용은 필수입니다.');
+  if(f.endDate<f.tripDate)issues.push('출장 종료일은 시작일보다 빠를 수 없습니다.');
+  if(members.length<2)issues.push('출장건당 인원은 최소 2명 이상이어야 합니다.');
+  if(new Set(members).size!==members.length)issues.push('출장 인원은 서로 달라야 합니다.');
+  if(f.tripDate){
+    const sd=new Date(f.tripDate),ed=new Date(f.endDate||f.tripDate);
+    if(sd.getDay()===0||sd.getDay()===6)issues.push(`출장 시작일(${f.tripDate})은 주말이라 배정 불가합니다.`);
+    if(f.endDate&&f.endDate!==f.tripDate&&(ed.getDay()===0||ed.getDay()===6))issues.push(`출장 종료일(${f.endDate})은 주말이라 배정 불가합니다.`);
+  }
+  // ★ 수정 중인 출장건의 원본 정보 (중복/불가 검사 제외용)
+  const editingTrip=state.editingTripId?state.trips.find(t=>t.id===state.editingTripId):null;
+  const editingMembers=editingTrip?(editingTrip.members||[]).filter(Boolean):[];
+  const editingDates=editingTrip?eachDateInRange(editingTrip.tripDate,editingTrip.endDate||editingTrip.tripDate):[];
+  // ★ 같은 묶음(날짜 겹침 + 출장자 동일 OR 차량 동일)인 출장건 ID 목록도 제외
+  const formMembersKey=members.slice().sort().join(',');
+  const bundleExcludeIds=editingTrip?state.trips.filter(t=>{
+    if(t.id===editingTrip.id)return false;
+    const tEnd=t.endDate||t.tripDate;
+    const eEnd=editingTrip.endDate||editingTrip.tripDate;
+    const dateOverlap=t.tripDate<=eEnd&&tEnd>=editingTrip.tripDate;
+    if(!dateOverlap)return false;
+    const sameMembersByEdit=(t.members||[]).slice().sort().join(',')===editingMembers.slice().sort().join(',');
+    const sameMembersByForm=(t.members||[]).slice().sort().join(',')===formMembersKey;
+    const sameVehicle=t.vehicle===editingTrip.vehicle;
+    return sameMembersByEdit||sameMembersByForm||sameVehicle;
+  }).map(t=>t.id):[];
+  if(f.tripDate&&f.endDate){
+    eachDateInRange(f.tripDate,f.endDate).forEach(date=>{
+      if(isHolidayDate(date))issues.push(`${date}은(는) 공휴일이라 출장 배정이 불가합니다.`);
+      if(f.vehicle&&vehicleConflict(date,f.vehicle,state.editingTripId,bundleExcludeIds))issues.push(`${date}에 선택한 차량은 이미 배정되어 있습니다.`);
+      members.forEach(member=>{
+        if(memberConflict(date,member,state.editingTripId,bundleExcludeIds))issues.push(`${member}은(는) ${date}에 다른 출장건에 배정되어 있습니다.`);
+        // ★ 수정 모드에서 원본 출장자+원본 날짜 범위면 불가일정 체크 제외
+        const isOriginalCombo=editingMembers.includes(member)&&editingDates.includes(date);
+        if(!isOriginalCombo&&blockedBySchedule(date,member))
+          issues.push(`${member}은(는) ${date}에 연가/교육/기타 일정이 있어 출장 배정이 불가합니다.`);
+      });
+    });
+  }
+  return [...new Set(issues)];
+}
+function renderIssueBox(){const box=document.getElementById('tripIssueBox');const issues=formIssues();box.innerHTML=!issues.length?'<div class="ok">✓ 등록 가능합니다.</div>':issues.map(x=>`<div class="danger">⚠ ${x}</div>`).join('');// ★ 수정 모드일 때는 이슈가 없으면 버튼 활성화
+document.getElementById('addTripBtn').disabled=issues.length>0}
+function scheduleIssueBox(){clearTimeout(issueBoxTimer);issueBoxTimer=setTimeout(renderIssueBox,120)}
+function syncTripToDoc(trip){
+  if(!trip.docNo)return;
+  let doc=state.docs.find(d=>(d.receiptDoc||'')===(trip.docNo||'')||d.docNo===trip.docNo);
+  const riskMonthLabel=trip.risk&&trip.tripDate?`진행중(${new Date(trip.tripDate).getMonth()+1}월)`:'';
+  if(!doc){
+    state.docs.unshift({
+      id:`DOC-${Date.now()}`,
+      docNo:trip.docNo,
+      receiptDoc:trip.docNo,
+      planMonth:trip.planMonth||'',
+      riskMonth:trip.risk?(trip.planMonth||''):'',
+      riskAssessment:riskMonthLabel||'완료',
+      region:trip.region||'',
+      owner:trip.owner||'',
+      destination:trip.destination||'',
+      outlet:trip.outlet||'',
+      testItem:trip.risk?'':(trip.testItem||''),
+      task:trip.task||'',
+      resultDueDate:'',
+      delayReason:'',
+      delayed:false,
+      csvProgress:'진행중'
+    });
+  } else {
+    doc.planMonth=trip.planMonth||doc.planMonth;
+    doc.riskMonth=trip.risk?(trip.planMonth||doc.riskMonth):doc.riskMonth;
+    doc.region=trip.region||doc.region;
+    doc.owner=trip.owner||doc.owner;
+    doc.destination=trip.destination||doc.destination;
+    doc.outlet=trip.outlet||doc.outlet;
+    if(!trip.risk) doc.testItem=trip.testItem||doc.testItem;
+    doc.task=trip.task||doc.task;
+    // ★ 원본 riskAssessment 백업 (진행중으로 바꾸기 전에 저장)
+    if(!doc._origRiskAssessment && doc.riskAssessment && !doc.riskAssessment.startsWith('진행중')){
+      doc._origRiskAssessment=doc.riskAssessment;
+    }
+    // ★ 사전위험성 출장 등록 시 riskAssessment → 진행중(해당월)
+    // ★ 사전위험성 체크 해제 시 → 원래 값(필요/완료)으로 복원
+    if(trip.risk&&riskMonthLabel){
+      doc.riskAssessment=riskMonthLabel;
+    } else if(!trip.risk && doc.riskAssessment && doc.riskAssessment.startsWith('진행중')){
+      // 체크 해제됐는데 진행중으로 남아있으면 → 필요로 복원 (엑셀 원본값 기준)
+      doc.riskAssessment = doc._origRiskAssessment || '필요';
+    }
+    const currentStatus=computeDocStatus(doc);
+    if(currentStatus==='대기'||currentStatus==='진행중'){
+      doc.csvProgress='진행중';
+    }
+  }
+}
+function addTrip(){
+  const issues=formIssues();
+  if(issues.length) return;
+  const form=currentTripForm();
+
+  // ★ 수정 모드: 기존 건 삭제 후 재등록
+  if(state.editingTripId){
+    const oldTrip=state.trips.find(t=>t.id===state.editingTripId);
+    state.trips=state.trips.filter(t=>t.id!==state.editingTripId);
+    // ★ 기존 건 삭제 시 문서 상태 복원 (removeTrip 로직과 동일)
+    if(oldTrip&&oldTrip.docNo){
+      const doc=state.docs.find(d=>(d.receiptDoc||'')===(oldTrip.docNo||'')||d.docNo===oldTrip.docNo);
+      if(doc){
+        const remaining=state.trips.filter(t=>t.docNo&&(t.docNo===(doc.receiptDoc||'')||t.docNo===doc.docNo));
+        if(remaining.length===0){
+          doc.csvProgress='대기';
+          doc.completed=false;
+          doc.completedAt='';
+          if(oldTrip.risk&&doc.riskAssessment&&doc.riskAssessment.startsWith('진행중')){
+            doc.riskAssessment=doc._origRiskAssessment||'필요';
+          }
+        }
+      }
+    }
+    state.editingTripId=null;
+    document.getElementById('addTripBtn').textContent='등록';
+    document.getElementById('addTripBtn').style.background='';
+    document.getElementById('addTripBtn').style.color='';
+  }
+  
+  // ★ 복수 선택 데이터가 있으면 우선 처리
+  if(state.multiSelectData && state.multiSelectData.length>0){
+    state.multiSelectData.forEach((docData,idx)=>{
+      const trip=normalizeTrip({
+        id:Date.now()+Math.random()+idx,
+        tripDate:form.tripDate,
+        endDate:form.endDate,
+        vehicle:form.vehicle,
+        planMonth:form.planMonth,
+        owner:docData.owner,  // ★ 각 문서의 개별 담당자!
+        members:form.members,
+        note:form.note,
+        risk:form.risk,
+        status:form.status,
+        completedAt:form.completedAt,
+        resultNote:form.resultNote,
+        // ★ 각 문서의 개별 정보
+        docNo:docData.docNo,
+        region:docData.region,
+        destination:docData.destination,
+        outlet:docData.outlet,
+        testItem:docData.testItem,
+        task:docData.task
+      });
+      state.trips.unshift(trip);
+      syncTripToDoc(trip);
+    });
+    // 복수 선택 데이터 초기화
+    state.multiSelectData=null;
+  }
+  else {
+    const docNos=form.docNo.split(',').map(s=>s.trim()).filter(Boolean);
+    const destinations=form.destination.split(',').map(s=>s.trim()).filter(Boolean);
+    
+    // ★ 복수 사업장: 각 사업장별로 trip 생성
+    if(destinations.length>1){
+      destinations.forEach((dest,idx)=>{
+        const trip=normalizeTrip({
+          id:Date.now()+Math.random()+idx,
+          ...form,
+          destination:dest,
+          docNo:docNos[idx]||form.docNo
+        });
+        state.trips.unshift(trip);
+        syncTripToDoc(trip);
+      });
+    }
+    // ★ 복수 문서번호 (기존 방식 유지)
+    else if(docNos.length>1){
+      docNos.forEach(docNo=>{
+        const trip=normalizeTrip({
+          id:Date.now()+Math.random(),
+          ...form,
+          docNo
+        });
+        state.trips.unshift(trip);
+        syncTripToDoc(trip);
+      });
+    } 
+    // ★ 단일 출장
+    else {
+      const trip=normalizeTrip({id:Date.now(),...form});
+      state.trips.unshift(trip);
+      syncTripToDoc(trip);
+    }
+  }
+  
+  state.selectedDate=form.tripDate;
+  saveState();
+  clearForm();
+  renderAll();
+  renderIssueBox();
+}
+function clearForm(){
+  ['tripDocNo','tripOwner','tripRegion','tripDestination','tripOutlet','tripTestItem','tripTask','tripNote'].forEach(id=>document.getElementById(id).value='');
+  ['tripVehicle','tripLeader','tripMember1','tripMember2','tripMember3','tripMember4','tripMember5'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('tripRisk').checked=false;
+  state.editingTripId=null;
+  document.getElementById('addTripBtn').textContent='등록';
+  document.getElementById('addTripBtn').style.background='';
+  clearMultiSelectInfo();
+}
+function addTraveler(){const input=document.getElementById('newTraveler');const value=input.value.trim();if(!value||state.travelers.includes(value))return;state.travelers.push(value);input.value='';saveState();renderSidebar();renderStats();renderAnalytics();renderIssueBox()}
+function removeTrip(id){
+  if(!confirm('해당 출장건을 삭제할까요?'))return;
+  const trip=state.trips.find(t=>t.id===id);
+  state.trips=state.trips.filter(t=>t.id!==id);
+  if(state.modalTripId===id) closeTripModal();
+  document.querySelectorAll('.multi-trip-modal').forEach(m=>m.remove());
+  if(trip&&trip.docNo){
+    const doc=state.docs.find(d=>(d.receiptDoc||'')===(trip.docNo||'')||d.docNo===trip.docNo);
+    if(doc){
+      const remaining=state.trips.filter(t=>t.docNo&&(t.docNo===(doc.receiptDoc||'')||t.docNo===doc.docNo));
+      if(remaining.length===0){
+        // ★ 완료 상태도 대기로 복원
+        doc.csvProgress='대기';
+        doc.completed=false;
+        doc.completedAt='';
+        doc.completeMemo='';
+        // ★ 사전위험성도 원복 (엑셀 원본값 유지)
+        if(trip.risk&&doc.riskAssessment&&doc.riskAssessment.startsWith('진행중')){
+          doc.riskAssessment='필요';
+        }
+      } else if(!doc.completed&&!doc.delayed){
+        doc.csvProgress='진행중';
+      }
+    }
+  }
+  saveState();
+  renderCurrentTab();
+  renderStats();
+}
+function completeTrip(id){
+  const memo=prompt('완료 결과 또는 특이사항을 입력하세요.','기한 내 출장 완료');
+  if(memo===null)return; // 취소 시 중단
+  const trip=state.trips.find(t=>t.id===id);
+  if(!trip)return;
+  trip.status='completed';
+  trip.completedAt=trip.endDate||trip.tripDate;
+  trip.resultNote=memo||'완료';
+  // ★ 연결된 문서 완료 처리 → 완료 리스트로 이동
+  const doc=state.docs.find(d=>(d.receiptDoc||'')===(trip.docNo||'')||d.docNo===trip.docNo);
+  if(doc){
+    doc.completed=true;
+    doc.completedAt=trip.completedAt;
+    doc.completeMemo=trip.resultNote;
+    doc.csvProgress='완료';
+  }
+  saveState();
+  renderCurrentTab();
+  renderStats();
+}
+function openMultiTripModal(tripIds){
+  document.querySelectorAll('.multi-trip-modal').forEach(m=>m.remove());
+  const backdrop=document.createElement('div');
+  backdrop.className='multi-trip-modal';
+  backdrop.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;overflow-x:auto;';
+  backdrop.onclick=function(e){if(e.target===backdrop)backdrop.remove();};
+  tripIds.forEach(function(id,index){
+    const trip=state.trips.find(t=>t.id===id);
+    if(!trip)return;
+    const v=getVehicle(trip.vehicle);
+    const panel=document.createElement('div');
+    panel.className='modal-panel';
+    panel.style.cssText='position:relative;max-width:380px;min-width:300px;flex-shrink:0;margin:0;max-height:90vh;overflow-y:auto;';
+    panel.onclick=function(e){e.stopPropagation();};
+    panel.innerHTML=`
+      <div class="modal-header">
+        <h2 style="margin:0;font-size:14px;">${trip.destination} (${index+1}/${tripIds.length})</h2>
+        <div class="inline" style="gap:6px;">
+          <button onclick="removeTrip(${id});this.closest('.multi-trip-modal').remove();" style="background:#ef4444;color:white;font-size:12px;padding:4px 8px;">🗑 삭제</button>
+          <button onclick="this.closest('.modal-panel').remove();if(!document.querySelector('.multi-trip-modal .modal-panel'))document.querySelector('.multi-trip-modal').remove();" style="font-size:12px;padding:4px 8px;">닫기</button>
+        </div>
+      </div>
+      <div class="modal-grid" style="font-size:13px;">
+        <div class="modal-item"><strong>문서번호</strong>${trip.docNo||'-'}</div>
+        <div class="modal-item"><strong>차량</strong>${v.name}</div>
+        <div class="modal-item"><strong>출장기간</strong>${trip.tripDate} ~ ${trip.endDate||trip.tripDate}</div>
+        <div class="modal-item"><strong>담당자</strong>${trip.owner||'-'}</div>
+        <div class="modal-item"><strong>사업장</strong>${trip.destination}${trip.risk?' <span style="color:#ef4444;font-size:11px;">⚠️사전위험성</span>':''}</div>
+        <div class="modal-item"><strong>배출구</strong>${trip.outlet||'-'}</div>
+        <div class="modal-item"><strong>시험항목</strong>${trip.risk?'<span class="risk-text">사전위험성</span>':(trip.testItem||'-')}</div>
+        <div class="modal-item"><strong>출장인원</strong>${(trip.members||[]).filter(Boolean).join(', ')}</div>
+        <div class="modal-item" style="grid-column:1/-1;"><strong>시험내용</strong>${trip.task||'-'}</div>
+        <div style="grid-column:1/-1;margin-top:8px;display:flex;gap:6px;">
+          <button onclick="editTripFromModal(${id});" style="background:#f59e0b;color:white;font-size:12px;flex:1;">✏️ 수정</button>
+          <button onclick="completeTrip(${id});document.querySelector('.multi-trip-modal').remove();" style="background:#10b981;color:white;font-size:12px;flex:1;">✅ 완료</button>
+        </div>
+      </div>`;
+    backdrop.appendChild(panel);
+  });
+  document.body.appendChild(backdrop);
+}
+function deleteMultiModal(btn){
+  const modal=btn.closest('.multi-trip-modal');
+  if(modal) modal.remove();
+}
+
+function openTripModal(id){
+  const trip=state.trips.find(t=>t.id===id);
+  if(!trip)return;
+  state.modalTripId=id;
+  const v=getVehicle(trip.vehicle);
+  document.getElementById('modalTitle').textContent=`${trip.destination} 상세`;
+  const riskBadge=trip.risk?'<span style="background:#fef2f2;color:#ef4444;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;">⚠️ 사전위험성</span>':'';
+  document.getElementById('modalGrid').innerHTML=`
+    <div class="modal-item"><strong>문서번호</strong>${trip.docNo}</div>
+    <div class="modal-item"><strong>차량</strong>${v.name}</div>
+    <div class="modal-item"><strong>출장기간</strong>${trip.tripDate} ~ ${trip.endDate||trip.tripDate}</div>
+    <div class="modal-item"><strong>출장계획월</strong>${trip.planMonth||'-'}</div>
+    <div class="modal-item"><strong>지역</strong>${trip.region||'-'}</div>
+    <div class="modal-item"><strong>담당자</strong>${trip.owner||'-'}</div>
+    <div class="modal-item"><strong>사업장</strong>${trip.destination} ${riskBadge}</div>
+    <div class="modal-item"><strong>배출구</strong>${trip.outlet||'-'}</div>
+    <div class="modal-item"><strong>시험항목</strong>${trip.risk?'<span class="risk-text">사전위험성</span>':(trip.testItem||'-')}</div>
+    <div class="modal-item"><strong>출장인원</strong>${(trip.members||[]).filter(Boolean).join(', ')}</div>
+    <div class="modal-item" style="grid-column:1/-1;"><strong>시험내용</strong>${trip.task||'-'}</div>
+    <div class="modal-item" style="grid-column:1/-1;"><strong>비고 / 결과</strong>${trip.note||'-'}${trip.resultNote?` / ${trip.resultNote}`:''}</div>`;
+  // 수정 버튼 표시
+  document.getElementById('modalEditBtn').classList.remove('hidden');
+  document.getElementById('tripModal').classList.remove('hidden');
+}
+
+function editTripFromModal(tripId){
+  const id=tripId||state.modalTripId;
+  const trip=state.trips.find(t=>t.id===id);
+  if(!trip)return;
+  // 멀티 모달 닫기
+  document.querySelectorAll('.multi-trip-modal').forEach(m=>m.remove());
+  closeTripModal();
+  // 폼에 데이터 채우기
+  document.getElementById('tripDate').value=trip.tripDate||'';
+  document.getElementById('tripEndDate').value=trip.endDate||trip.tripDate||'';
+  document.getElementById('tripDocNo').value=trip.docNo||'';
+  document.getElementById('tripVehicle').value=trip.vehicle||'';
+  document.getElementById('tripOwner').value=trip.owner||'';
+  document.getElementById('tripRegion').value=trip.region||'';
+  document.getElementById('tripDestination').value=trip.destination||'';
+  document.getElementById('tripOutlet').value=trip.outlet||'';
+  document.getElementById('tripTestItem').value=trip.risk?'사전위험성':(trip.testItem||'');
+  document.getElementById('tripTask').value=trip.task||'';
+  document.getElementById('tripNote').value=trip.note||'';
+  document.getElementById('tripRisk').checked=!!trip.risk;
+  const members=(trip.members||[]).filter(Boolean);
+  ['tripLeader','tripMember1','tripMember2','tripMember3','tripMember4','tripMember5'].forEach((elId,i)=>{
+    const el=document.getElementById(elId);
+    if(el) el.value=members[i]||'';
+  });
+  state.editingTripId=id;
+  document.getElementById('addTripBtn').textContent='수정 완료';
+  document.getElementById('addTripBtn').style.background='#f59e0b';
+  document.getElementById('addTripBtn').style.color='white';
+  document.getElementById('addTripBtn').disabled=false;
+  document.getElementById('tripDate').scrollIntoView({behavior:'smooth',block:'center'});
+  renderIssueBox();
+}
+function closeTripModal(){state.modalTripId=null;document.getElementById('tripModal').classList.add('hidden')}
+function daysUntil(dateStr){const target=parseDateOnly(dateStr);if(!target)return '-';const today=new Date();today.setHours(0,0,0,0);return Math.ceil((target-today)/(1000*60*60*24))}
+function getRelatedTrips(doc){return state.trips.filter(t=>t.docNo&&(t.docNo===(doc.receiptDoc||'')||t.docNo===doc.docNo))}
+function computeDocStatus(doc){
+  const related=getRelatedTrips(doc);
+  const csvProgress=normalizeProgressStatus(doc.csvProgress);
+  if(related.some(t=>t.status==='completed')||doc.completed||csvProgress==='완료')return '완료';
+  if(doc.delayed||csvProgress==='연기')return '연기';
+  if(csvProgress==='지연')return '지연';
+  if(related.length){
+    const hasNonRiskTrip=related.some(t=>!t.risk);
+    // ★ 실제 시험 출장이 있어야 진행중, 사전위험성만이면 대기
+    if(hasNonRiskTrip)return '진행중';
+    return '대기';
+  }
+  return '대기';
+}
+function delayDoc(id){const doc=state.docs.find(d=>d.id===id);if(!doc)return;const reason=prompt('연기사유를 입력하세요.');if(!reason)return;doc.delayed=true;doc.delayReason=reason;doc.csvProgress='연기';saveState();renderStats();renderDocPicker();renderCurrentTab()}
+function undoDelayDoc(id){const doc=state.docs.find(d=>d.id===id);if(!doc)return;doc.delayed=false;doc.delayReason='';if(normalizeProgressStatus(doc.csvProgress)==='연기')doc.csvProgress='대기';saveState();renderStats();renderDocPicker();renderCurrentTab()}
+function deleteDoc(id){const doc=state.docs.find(d=>d.id===id);if(!doc)return;if(!confirm(`문서 리스트에서 "${doc.destination||doc.receiptDoc||'해당 문서'}" 항목을 삭제할까요?`))return;state.docs=state.docs.filter(d=>d.id!==id);saveState();renderStats();renderDocPicker();renderCurrentTab()}
+function undoCompleteDoc(id){const doc=state.docs.find(d=>d.id===id);if(!doc)return;if(!confirm(`"${doc.destination||doc.receiptDoc||'해당 문서'}"를 대기 상태로 되돌릴까요?`))return;doc.completed=false;doc.completedAt='';doc.completeMemo='';doc.csvProgress='';saveState();renderStats();renderCurrentTab()}
+function normalizeHeader(v){return String(v||'').replace(/\n/g,'').replace(/\s+/g,'').trim()}
+function normalizeProgressStatus(v){const s=String(v||'').trim();if(!s)return '';if(['완료','완료처리'].includes(s))return '완료';if(['지연'].includes(s))return '지연';if(['연기','연기처리'].includes(s))return '연기';if(['계획','진행중'].includes(s))return s;return s}
+function formatExcelDate(value){if(value==null||value==='')return '';if(typeof value==='number')return XLSX.SSF.format('yyyy-mm-dd',value);const s=String(value).trim();const m=s.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})$/);if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;return s.slice(0,10)}
+
+function splitCsvLine(line){
+  const out=[]; let cur=''; let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(inQuotes && line[i+1]==='"'){cur+='"'; i++;}
+      else inQuotes=!inQuotes;
+    }else if(ch===',' && !inQuotes){
+      out.push(cur); cur='';
+    }else{
+      cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(v=>v.trim());
+}
+function parseCsvText(text){
+  const lines=String(text||'').replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(x=>x.trim()!=='');
+  if(!lines.length) return [];
+  const headers=splitCsvLine(lines[0]).map(h=>String(h||'').trim().replace(/\ufeff/g,''));
+  return lines.slice(1).map(line=>{
+    const cols=splitCsvLine(line);
+    const obj={};
+    headers.forEach((h,i)=>obj[h]=cols[i]||'');
+    return obj;
+  });
+}
+
+function makeDocMatchKey(doc){
+  const receipt=String(doc.receiptDoc||doc.docNo||'').trim();
+  const code=String(doc.code||'').trim();
+  // ★ 사업장코드 + 배출구 + 완료문서(receiptDoc) 조합
+  const combo=[code,String(doc.outlet||'').trim(),receipt].filter(Boolean).join('|');
+  return {receipt, code, combo};
+}
+function mergeIncomingDocs(incomingDocs){
+  // ★ 중복 문서 제거 (코드+배출구+완료문서 조합으로 판단)
+  const seenKeys=new Set();
+  const existing=[...state.docs].filter(d=>{
+    const code=String(d.code||'').trim();
+    const outlet=String(d.outlet||'').trim();
+    const receipt=String(d.receiptDoc||d.docNo||'').trim();
+    const key=[code,outlet,receipt].filter(Boolean).join('|');
+    if(!key) return true;
+    if(seenKeys.has(key)) return false;
+    seenKeys.add(key);
+    return true;
+  });
+  
+  const timestamp=new Date().toLocaleString('ko-KR');
+  let added=0, updated=0;
+  const changes=[]; // 변경사항 추적
+  
+  incomingDocs.forEach(doc=>{
+    const key=makeDocMatchKey(doc);
+    // ★ 우선순위: 1) 코드+배출구+완료문서 2) 완료문서만(배출구없음) 3) 코드+시험항목
+    let found=null;
+    
+    // 1순위: 코드+배출구+완료문서 조합 (가장 정확)
+    if(key.combo){
+      found=existing.find(d=>{
+        const existCombo=[String(d.code||'').trim(),String(d.outlet||'').trim(),String(d.receiptDoc||d.docNo||'').trim()].filter(Boolean).join('|');
+        return existCombo===key.combo;
+      });
+    }
+    
+    // 2순위: 완료문서만 (배출구가 없는 경우)
+    if(!found){
+      found=existing.find(d=>{
+        const existReceipt=String(d.receiptDoc||d.docNo||'').trim();
+        const existOutlet=String(d.outlet||'').trim();
+        // 배출구가 없는 문서만 receiptDoc으로 매칭
+        return existReceipt && existReceipt===key.receipt && !existOutlet;
+      });
+    }
+    
+    // 3순위: 사업장코드 + 시험항목 (같은 사업장의 같은 시험이지만 배출구가 다른 경우)
+    if(!found && key.code && doc.testItem){
+      found=existing.find(d=>{
+        const codeMatch=String(d.code||'').trim()===key.code;
+        const testItemMatch=String(d.testItem||'').trim()===String(doc.testItem||'').trim();
+        const receiptMatch=String(d.receiptDoc||d.docNo||'').trim()===key.receipt;
+        // 코드+시험항목이 같고, 완료문서도 같아야 매칭
+        return codeMatch && testItemMatch && receiptMatch;
+      });
+    }
+    
+    if(found){
+      // ★ HTML에서 완료된 문서는 엑셀로 덮어쓰지 않음
+      const htmlStatus=computeDocStatus(found);
+      if(found.completed){
+        // 이미 HTML에서 완료 처리된 문서는 건너뜀
+        return;
+      }
+      
+      // ★ 엑셀에서 완료 상태인 경우 조용히 완료 처리 (이력 기록 안 함)
+      if(doc.completed){
+        found.completed=true;
+        found.completedAt=doc.completedAt||'';
+        found.csvProgress='완료';
+        // 나머지 필드는 그대로 유지 (이력 기록 안 함)
+        return;
+      }
+      
+      // ★ 진행중 상태여도 기본 정보는 업데이트 (담당자, 사업장명 등)
+      // 기존 문서 발견 → 변경사항 감지 및 기록
+      const fieldChanges=[];
+      
+      // 문자열 필드 추적 (실제로 값이 다를 때만)
+      const stringFields=[
+        {key:'csvProgress', label:'진행상태'},
+        {key:'region', label:'지역'},
+        {key:'owner', label:'담당자'},
+        {key:'testItem', label:'시험항목'},
+        {key:'task', label:'시험내용'},
+        {key:'note', label:'비고'}
+      ];
+      
+      stringFields.forEach(({key, label})=>{
+        // 공백, 줄바꿈, 특수공백 완전 제거 후 비교
+        const oldVal=String(found[key]||'').replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g,'');
+        const newVal=String(doc[key]||'').replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g,'');
+        // 빈 문자열은 null로 정규화
+        const oldNormalized=oldVal||null;
+        const newNormalized=newVal||null;
+        if(oldNormalized!==newNormalized){
+          fieldChanges.push({
+            field:label,
+            oldValue:found[key]||'-',
+            newValue:doc[key]||'-'
+          });
+        }
+      });
+      
+      // Boolean 필드 추적 (실제 변경만)
+      if(Boolean(found.delayed)!==Boolean(doc.delayed)){
+        fieldChanges.push({
+          field:'연기여부',
+          oldValue:found.delayed?'연기':'정상',
+          newValue:doc.delayed?'연기':'정상'
+        });
+      }
+      if(Boolean(found.completed)!==Boolean(doc.completed)){
+        fieldChanges.push({
+          field:'완료여부',
+          oldValue:found.completed?'완료':'미완료',
+          newValue:doc.completed?'완료':'미완료'
+        });
+      }
+      
+      // ★ 변경사항 기록 (있을 때만)
+      if(fieldChanges.length>0){
+        fieldChanges.forEach(fc=>{
+          changes.push({
+            timestamp,
+            type:'수정',
+            destination:doc.destination||'-',
+            receiptDoc:doc.receiptDoc||doc.docNo||'-',
+            field:fc.field,
+            oldValue:fc.oldValue,
+            newValue:fc.newValue
+          });
+        });
+        updated++;
+      }
+      
+      // ★ 실제 업데이트 (변경 여부 관계없이 항상 엑셀 데이터로 덮어쓰기)
+      found.receiptDoc=doc.receiptDoc||'';
+      found.code=doc.code||'';
+      found.region=doc.region||'';
+      found.owner=doc.owner||'';
+      found.destination=doc.destination||'';
+      found.outlet=doc.outlet||'';
+      found.testItem=doc.testItem||'';
+      found.task=doc.task||'';
+      found.resultDueDate=doc.resultDueDate||'';
+      found.note=doc.note||'';
+      found.csvProgress=doc.csvProgress||'';
+      found.delayed=doc.delayed||false;
+      found.delayReason=doc.delayReason||'';
+      found.completed=doc.completed||false;
+      found.completedAt=doc.completedAt||'';
+      // ★ 사전위험성: 엑셀에 값이 있을 때만 완료로 업데이트, 빈칸이면 현재 HTML 상태 유지
+      if(doc.riskAssessment && doc.riskAssessment!=='필요'){
+        found.riskAssessment='완료';
+      }
+      // 빈칸(필요)이면 현재 found.riskAssessment 그대로 유지
+      // 변경사항 없으면 아무것도 안 함 (중복 방지)
+    } else {
+      // ★ 신규 문서 추가
+      existing.push(doc);
+      changes.push({
+        timestamp,
+        type:'신규',
+        destination:doc.destination||'-',
+        receiptDoc:doc.receiptDoc||doc.docNo||'-',
+        field:'전체',
+        oldValue:'-',
+        newValue:'신규 추가'
+      });
+      added++;
+    }
+  });
+  
+  state.docs=existing;
+  // 변경 이력 저장 (최신순)
+  if(changes.length>0){
+    state.updateHistory=[...changes,...state.updateHistory];
+  }
+  return {added, updated, total:state.docs.length};
+}
+function parseDocExcel(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      // ── XLSX 파싱 ──
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
+
+      // ── 시트 찾기 ──
+      const TNAME='출장 목록(전체)';
+      if(!wb.SheetNames.includes(TNAME)){
+        alert('"출장 목록(전체)" 시트를 찾을 수 없습니다.\n포함 시트: '+wb.SheetNames.join(', '));
+        return;
+      }
+      const ws=wb.Sheets[TNAME];
+      // header:1 → 배열 배열 반환, raw:true → Date 셀은 Date 객체
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+      if(rows.length<2){alert('시트에 데이터가 없습니다.');return;}
+
+      // ── 헤더 행으로 컬럼 인덱스 찾기 (공백·줄바꿈 제거 후 매칭) ──
+      const hdr=rows[0].map(h=>String(h||'').replace(/[\n\r\s]/g,''));
+      function col(keys,fallback){
+        // keys 배열 중 첫 번째로 매칭되는 헤더 인덱스 반환
+        const idx=hdr.findIndex(h=>keys.some(k=>k==='='?h===keys[keys.indexOf(k)+1]:h.includes(k)));
+        return idx>=0?idx:fallback;
+      }
+      // 정확한 열 인덱스 (Python 분석으로 확인된 fallback 포함)
+      const CI={
+        사전위험성: hdr.findIndex(h=>h.includes('사전위험성')) >=0 ? hdr.findIndex(h=>h.includes('사전위험성')) : 2,
+        진행상태: hdr.findIndex(h=>h==='진행상태')   >=0 ? hdr.findIndex(h=>h==='진행상태')   : 3,
+        지역:     hdr.findIndex(h=>h==='지역')        >=0 ? hdr.findIndex(h=>h==='지역')        : 5,
+        담당자:   hdr.findIndex(h=>h==='담당자')      >=0 ? hdr.findIndex(h=>h==='담당자')      : 6,
+        시험구분: hdr.findIndex(h=>h==='시험구분')    >=0 ? hdr.findIndex(h=>h==='시험구분')    : 15,
+        코드:     hdr.findIndex(h=>h.includes('사업장코드')) >=0 ? hdr.findIndex(h=>h.includes('사업장코드')) : 11,
+        계획문서: hdr.findIndex(h=>h==='계획문서')    >=0 ? hdr.findIndex(h=>h==='계획문서')    : 21,
+        사업장명: hdr.findIndex(h=>h==='사업장명')    >=0 ? hdr.findIndex(h=>h==='사업장명')    : 13,
+        배출구:   hdr.findIndex(h=>h==='배출구')      >=0 ? hdr.findIndex(h=>h==='배출구')      : 14,
+        시험항목: hdr.findIndex(h=>h==='시험항목')    >=0 ? hdr.findIndex(h=>h==='시험항목')    : 16,
+        개선내용: hdr.findIndex(h=>h==='개선내용')    >=0 ? hdr.findIndex(h=>h==='개선내용')    : 17,
+        상태:     hdr.findIndex(h=>h==='상태')        >=0 ? hdr.findIndex(h=>h==='상태')        : 26,
+        완료문서: hdr.findIndex(h=>h==='완료문서')    >=0 ? hdr.findIndex(h=>h==='완료문서')    : 27,
+        결과통보: hdr.findIndex(h=>h.includes('결과통보기한')) >=0 ? hdr.findIndex(h=>h.includes('결과통보기한')) : 36,
+        비고:     hdr.findIndex(h=>h==='비고1')       >=0 ? hdr.findIndex(h=>h==='비고1')       : 37,
+      };
+
+      // ── 셀 값 → 문자열 변환 ──
+      function gs(row,ci){return ci>=0?String(row[ci]??'').trim():'';}
+
+      // ── 날짜 셀 → YYYY-MM-DD 변환 ──
+      function fmtDate(v){
+        if(v===''||v===null||v===undefined)return '';
+        if(v instanceof Date){
+          if(isNaN(v.getTime()))return '';
+          return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+        }
+        const s=String(v).trim();
+        const m=s.match(/^(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/);
+        if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+        // Excel 날짜 시리얼 숫자 처리
+        const n=Number(v);
+        if(!isNaN(n)&&n>40000&&n<80000)return XLSX.SSF.format('yyyy-mm-dd',n);
+        return s.slice(0,10);
+      }
+
+      // ── 행 순회 → docs 변환 ──
+      const incomingDocs=[];
+      rows.slice(1).forEach((row,idx)=>{
+        const 사업장명=gs(row,CI.사업장명);
+        if(!사업장명)return; // 빈 행 스킵
+
+        const 진행상태=gs(row,CI.진행상태).replace(/[\s\u00A0\u200B-\u200D\uFEFF]/g,'');  // 공백 완전 제거
+        const 상태     =gs(row,CI.상태);
+        const 시험구분=gs(row,CI.시험구분);
+
+        // ── 접수 문서: 신규/신규부착 → 계획문서 번호, 아니면 완료문서 번호 ──
+        const isNew=/신규/.test(상태)||/신규/.test(시험구분);
+        const 계획문서raw=row[CI.계획문서];
+        const 계획문서str=(계획문서raw!==''&&계획문서raw!=null)?String(계획문서raw).trim():'';
+        const 완료문서raw=row[CI.완료문서];
+        const 완료문서str=(완료문서raw!==''&&완료문서raw!=null)?String(완료문서raw).trim():'';
+        const receiptDoc=isNew?계획문서str:완료문서str;
+
+        // ── 진행상태 → HTML 상태 매핑 (공백 제거 후 비교) ──
+        // 완료 → 완료 (completed=true, csvProgress='완료')
+        // 진행 → 진행중 (csvProgress='진행중')
+        // 연기 → 연기 (csvProgress='연기', delayed=true)
+        let csvProg='', isCompleted=false, isDelayed=false;
+        if(진행상태.includes('완료')){
+          csvProg='완료';
+          isCompleted=true;
+        } else if(진행상태.includes('진행')){
+          csvProg='진행중';
+        } else if(진행상태.includes('연기')){
+          csvProg='연기';
+          isDelayed=true; // 연기 → delayed=true로 연기 상태 표시
+        }
+
+        const deadline=fmtDate(row[CI.결과통보]);
+        
+        // ── 사전위험성 검토 확인 ──
+        const 사전위험성raw=row[CI.사전위험성];
+        const 사전위험성str=String(사전위험성raw||'').trim();
+        const needsRiskAssessment=!사전위험성str || 사전위험성str==='-' || 사전위험성str.toLowerCase()==='none';
+
+        incomingDocs.push({
+          id:`EX-${Date.now()}-${idx}`,
+          docNo:'',
+          receiptDoc,
+          code:     gs(row,CI.코드),
+          region:   gs(row,CI.지역),
+          owner:    gs(row,CI.담당자),
+          destination: 사업장명,
+          outlet:   gs(row,CI.배출구),
+          testItem: gs(row,CI.시험항목),
+          task:     gs(row,CI.개선내용),
+          resultDueDate: deadline,
+          note:     gs(row,CI.비고),
+          delayReason: isDelayed?'엑셀 업로드 (연기 상태)':'',
+          delayed:  isDelayed,
+          csvProgress: csvProg,
+          // 완료 건 → computeDocStatus가 '완료'로 판정 → 완료 리스트에만 표시
+          completed:   isCompleted,
+          completedAt: isCompleted?deadline:'',
+          riskAssessment: needsRiskAssessment?'필요':'완료',  // ★ 사전위험성 필드
+        });
+      });
+
+      if(!incomingDocs.length){
+        alert('처리할 데이터가 없습니다.\n시트 구조나 컬럼명을 확인하세요.');return;
+      }
+
+      // ── 기존 문서와 병합 ──
+      const result=mergeIncomingDocs(incomingDocs);
+      
+      // ★ 업로드 이력 저장 (되돌리기용)
+      if(result.added>0 || result.updated>0){
+        const uploadSnapshot={
+          timestamp:new Date().toLocaleString('ko-KR'),
+          filename:file.name,
+          docsBeforeUpload:JSON.parse(JSON.stringify(state.docs)), // 업로드 전 상태
+          added:result.added,
+          updated:result.updated
+        };
+        state.uploadHistory.unshift(uploadSnapshot);
+        // 최근 10개만 유지
+        if(state.uploadHistory.length>10) state.uploadHistory=state.uploadHistory.slice(0,10);
+      }
+      
+      saveState();renderStats();renderDocPicker();renderCurrentTab();
+
+      const cCnt=incomingDocs.filter(d=>d.completed).length;
+      const aCnt=incomingDocs.length-cCnt;
+      alert(
+        `✅ 엑셀 업로드 완료\n`+
+        `─────────────────\n`+
+        `파일명: ${file.name}\n`+
+        `업로드 시각: ${new Date().toLocaleString('ko-KR')}\n`+
+        `─────────────────\n`+
+        `신규 추가: ${result.added}건\n`+
+        `기존 갱신: ${result.updated}건\n`+
+        `전체 합계: ${result.total}건\n`+
+        `─────────────────\n`+
+        `📋 문서 리스트: ${aCnt}건\n`+
+        `✅ 완료 리스트: ${cCnt}건`
+      );
+    }catch(err){
+      console.error('Excel parsing error:', err);
+      console.error('Error stack:', err.stack);
+      
+      // 디버그 정보 수집
+      let debugInfo='';
+      try{
+        if(typeof ws!=='undefined'){
+          debugInfo+='\n\n📊 시트 정보:\n';
+          debugInfo+=`- 시트명: 출장 목록(전체)\n`;
+          debugInfo+=`- 발견된 헤더:\n`;
+          if(typeof hdr!=='undefined'){
+            hdr.forEach((h,i)=>debugInfo+=`  [${i}]: ${h}\n`);
+          }
+        }
+      }catch(e){}
+      
+      alert('엑셀 파싱 오류:\n\n' + err.message + debugInfo + '\n\n파일 형식이나 시트 구조를 확인하세요.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function clearUpdateHistory(){
+  if(!state.updateHistory || state.updateHistory.length===0){
+    alert('초기화할 이력이 없습니다.');
+    return;
+  }
+  
+  if(!confirm(`모든 업데이트 이력(${state.updateHistory.length}건)을 초기화하시겠습니까?\n\n⚠️ 이 작업은 취소할 수 없습니다.`)){
+    return;
+  }
+  
+  state.updateHistory=[];
+  saveState();
+  renderCurrentTab();
+  alert('✅ 업데이트 이력이 초기화되었습니다.');
+}
+function undoUpdateHistory(){
+  if(!state.uploadHistory || state.uploadHistory.length===0){
+    alert('되돌릴 업로드가 없습니다.');
+    return;
+  }
+  
+  undoLastUpload(); // 기존 업로드 되돌리기 함수 사용
+}
+function undoLastUpload(){
+  if(!state.uploadHistory || state.uploadHistory.length===0){
+    alert('되돌릴 업로드 이력이 없습니다.');
+    return;
+  }
+  
+  const lastUpload=state.uploadHistory[0];
+  const confirmMsg=`마지막 엑셀 업로드를 되돌리시겠습니까?\n\n`+
+    `파일명: ${lastUpload.filename}\n`+
+    `업로드 시각: ${lastUpload.timestamp}\n`+
+    `신규 추가: ${lastUpload.added}건\n`+
+    `기존 갱신: ${lastUpload.updated}건\n\n`+
+    `⚠️ 이 작업은 취소할 수 없습니다.`;
+  
+  if(!confirm(confirmMsg)) return;
+  
+  // 업로드 전 상태로 복원
+  state.docs=lastUpload.docsBeforeUpload;
+  state.uploadHistory.shift(); // 이력에서 제거
+  
+  saveState();
+  renderStats();
+  renderDocPicker();
+  renderCurrentTab();
+  
+  alert('✅ 업로드가 성공적으로 되돌려졌습니다.');
+}
+function exportJson(){
+  const now=new Date();
+  const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`출장일정_이력관리_${state.year}년${state.month}월_${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url)
+}
+function importJson(file){const reader=new FileReader();reader.onload=e=>{const parsed=JSON.parse(String(e.target.result||'{}'));Object.assign(state,parsed);state.trips=(state.trips||[]).map(normalizeTrip);if(!state.docs)state.docs=[];saveState();renderAll()};reader.readAsText(file)}
+function renderMonthTabs(){const el=document.getElementById('monthTabs');el.innerHTML='';for(let m=1;m<=12;m++){const b=document.createElement('button');b.textContent=`${m}월`;if(m===state.month)b.classList.add('active');b.onclick=()=>{state.month=m;saveState();renderAll()};el.appendChild(b)}}
+function renderStats(){
+  document.getElementById('statMonth').textContent=`${state.year}.${String(state.month).padStart(2,'0')}`;
+  document.getElementById('statTrips').textContent=`${monthTrips().filter(t=>t.status!=='completed').length}건`;
+  document.getElementById('statTravelers').textContent=`${state.travelers.length}명`;
+  document.getElementById('statFilteredDays').textContent=state.personFilter?`${countDaysForPerson(state.personFilter,monthTrips())}일`:'-';
+  document.getElementById('statTotalDays').textContent=state.personFilter?`${countDaysForPerson(state.personFilter,state.trips)}일`:'-';
+  const b=state.personFilter?buddyStats(state.personFilter):{most:'-',least:'-'};
+  document.getElementById('statBuddy').textContent=b.most==='-'?'-':`${b.most}/${b.least}`;
+  document.getElementById('statDocs').textContent=`${state.docs.length}건`;
+  
+  // ★ 이달의 출장왕 계산 (월 기준 출장 일수 top 2)
+  const travelerDays={};
+  state.travelers.forEach(t=>{
+    travelerDays[t]=countDaysForPerson(t,monthTrips());
+  });
+  const sorted=Object.entries(travelerDays).sort((a,b)=>b[1]-a[1]);
+  const top2=sorted.slice(0,2).filter(([name,days])=>days>0);
+  const topText=top2.length===0?'-':top2.map(([name,days])=>`${name}(${days}일)`).join(', ');
+  document.getElementById('statTopTravelers').textContent=topText;
+}
+function renderPersonFilter(){const el=document.getElementById('personFilter');el.innerHTML='<option value="">전체 출장자 보기</option>';state.travelers.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o)});el.value=state.personFilter;document.getElementById('filterInfo').textContent=state.personFilter?`${state.personFilter} 일정만 표시`:'전체 일정 표시'}
+function showAvailableInfo(dateStr){
+  const used=new Set(state.trips.filter(t=>{
+    const start=t.tripDate;
+    const end=t.endDate||t.tripDate;
+    return dateStr>=start && dateStr<=end;
+  }).map(t=>t.vehicle));
+  
+  const busyPeople=new Set();
+  state.trips.filter(t=>{
+    const start=t.tripDate;
+    const end=t.endDate||t.tripDate;
+    return dateStr>=start && dateStr<=end;
+  }).forEach(trip=>{
+    (trip.members||[]).filter(Boolean).forEach(m=>busyPeople.add(m));
+  });
+  
+  schedulesForDate(dateStr).forEach(sch=>{
+    if(sch.type!=='holiday'){
+      (sch.people||[]).forEach(p=>busyPeople.add(p));
+    }
+  });
+  
+  const availableVehicles=VEHICLES.filter(v=>!used.has(v.id)).map(v=>v.short).join(', ');
+  const availablePeople=state.travelers.filter(p=>!busyPeople.has(p)).join(', ');
+  
+  alert(`${dateStr} 가능 현황\n\n차량: ${availableVehicles||'없음'}\n\n인원: ${availablePeople||'없음'}`);
+}
+function renderWeekBoards(){const container=document.getElementById('weekBoards');container.innerHTML='';const trips=filteredTrips();buildWeeks(state.year,state.month).forEach((week,idx)=>{const board=document.createElement('div');board.className='week-board';const top=document.createElement('div');top.className='week-top';const w=document.createElement('div');w.textContent=`${idx+1}주차`;top.appendChild(w);week.forEach(d=>{const dateKey=ymd(d);const c=document.createElement('div');c.textContent=`${d.getMonth()+1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;if(isHolidayDate(dateKey))c.classList.add('is-holiday');if(d.getMonth()+1!==state.month)c.classList.add('out-month-h');const dayOfWeek=d.getDay();if(dayOfWeek===0||dayOfWeek===6){c.style.color='#ef4444';c.style.fontWeight='600';}top.appendChild(c)});board.appendChild(top);VEHICLES.forEach(vehicle=>{const row=document.createElement('div');row.className='vehicle-row';const label=document.createElement('div');label.className='vehicle-label';label.textContent=vehicle.name;row.appendChild(label);week.forEach(day=>{const cell=document.createElement('div');cell.className='cell'+(day.getMonth()+1!==state.month?' out-month':'');const dateStr=ymd(day);cell.onclick=()=>{state.selectedDate=dateStr;saveState();renderDetails()};cell.ondblclick=()=>{showAvailableInfo(dateStr)};row.appendChild(cell)});const bars=document.createElement('div');bars.className='bars';const vehicleTrips=trips.filter(t=>t.vehicle===vehicle.id);const tripGroups=new Map();vehicleTrips.forEach(trip=>{const weekStart=ymd(week[0]),weekEnd=ymd(week[6]);if((trip.endDate||trip.tripDate)<weekStart||trip.tripDate>weekEnd)return;const keys=eachDateInRange(weekStart,weekEnd);const startIndex=Math.max(0,keys.indexOf(trip.tripDate));const endIndex=Math.min(6,keys.indexOf(trip.endDate||trip.tripDate));
+// 같은 출장자 구성이면 기존 그룹에 합침 (연속/1박2일 묶음 표시)
+const membersKey=(trip.members||[]).slice().sort().join(',');
+let merged=false;
+tripGroups.forEach((group,gKey)=>{if(merged)return;const gMembersKey=(group.members||[]).slice().sort().join(',');if(gMembersKey===membersKey){// 날짜가 연속되거나 겹치면 합침
+const gStart=keys.indexOf(group.tripDate)<0?0:keys.indexOf(group.tripDate);const gEnd=keys.indexOf(group.endDate||group.tripDate)<0?6:keys.indexOf(group.endDate||group.tripDate);if(Math.abs(startIndex-gEnd)<=1||Math.abs(endIndex-gStart)<=1||startIndex<=gEnd&&endIndex>=gStart){group.startIndex=Math.min(group.startIndex,startIndex);group.endIndex=Math.max(group.endIndex,endIndex);if(trip.tripDate<group.tripDate)group.tripDate=trip.tripDate;if((trip.endDate||trip.tripDate)>(group.endDate||group.tripDate))group.endDate=trip.endDate||trip.tripDate;group.trips.push(trip);merged=true;}}});
+if(!merged){const groupKey=`${trip.tripDate}|${trip.endDate}|${membersKey}`;tripGroups.set(groupKey,{trips:[trip],startIndex,endIndex,tripDate:trip.tripDate,endDate:trip.endDate,weekStart,weekEnd,members:trip.members});}});tripGroups.forEach(group=>{const bar=document.createElement('div');bar.className=`bar ${vehicle.cls}`;bar.style.left=`calc(${(group.startIndex/7)*100}% + 4px)`;bar.style.width=`calc(${((group.endIndex-group.startIndex+1)/7)*100}% - 8px)`;if(group.tripDate<group.weekStart)bar.classList.add('cont-left');if((group.endDate||group.tripDate)>group.weekEnd)bar.classList.add('cont-right');const isRiskGroup=group.trips.some(t=>t.risk);const destinations=group.trips.map(t=>`${t.risk?'⚠️ ':''}${t.destination} ${t.outlet?'#'+t.outlet:''} ${t.risk?'(사전위험성)':(t.testItem?'('+t.testItem+')':'')}`).join('<br>');bar.innerHTML=`<div class="t1">${destinations}</div><div class="t3">${(group.members||[]).filter(Boolean).join(', ')}</div>`;if(isRiskGroup){bar.style.border='2px dashed #f97316';bar.style.boxSizing='border-box';}bar.ondblclick=e=>{e.stopPropagation();if(group.trips.length===1){openTripModal(group.trips[0].id)}else{openMultiTripModal(group.trips.map(t=>t.id))}};bars.appendChild(bar)});row.appendChild(bars);board.appendChild(row)});const scheduleRow=document.createElement('div');scheduleRow.className='schedule-row';const sLabel=document.createElement('div');sLabel.className='schedule-label';sLabel.textContent='연가 등';scheduleRow.appendChild(sLabel);week.forEach(day=>{const cell=document.createElement('div');cell.className='schedule-cell'+(day.getMonth()+1!==state.month?' out-month':'');cell.textContent=scheduleSummaryForDate(ymd(day));scheduleRow.appendChild(cell)});board.appendChild(scheduleRow);const holidayLayer=document.createElement('div');holidayLayer.className='holiday-overlay';week.forEach((day,i)=>{const holiday=schedulesForDate(ymd(day)).find(s=>s.type==='holiday');if(!holiday)return;const bar=document.createElement('div');bar.className='holiday-bar';bar.style.left=`calc(${(i/7)*100}% + 4px)`;bar.style.width=`calc(${(1/7)*100}% - 8px)`;bar.textContent=holiday.name||'공휴일';holidayLayer.appendChild(bar)});board.style.position='relative';board.appendChild(holidayLayer);container.appendChild(board)})}
+function renderDetails(){
+  document.getElementById('detailTitle').textContent=`${state.selectedDate} 상세`;
+  
+  // 가능한 차량
+  const av=document.getElementById('availableVehicles');
+  av.innerHTML='';
+  const used=new Set(selectedTrips().map(t=>t.vehicle));
+  VEHICLES.filter(v=>!used.has(v.id)).forEach(v=>{
+    const b=document.createElement('span');
+    b.className='badge';
+    b.textContent=`${v.short}`;
+    av.appendChild(b)
+  });
+  
+  // 가능한 인원 (출장자 및 연가 등 제외)
+  const busyPeople=new Set();
+  // 해당 날짜의 출장자
+  selectedTrips().forEach(trip=>{
+    (trip.members||[]).filter(Boolean).forEach(m=>busyPeople.add(m));
+  });
+  // 해당 날짜의 연가/휴가자
+  schedulesForDate(state.selectedDate).forEach(sch=>{
+    if(sch.type!=='holiday'){
+      (sch.people||[]).forEach(p=>busyPeople.add(p));
+    }
+  });
+  
+  const availablePeople=state.travelers.filter(p=>!busyPeople.has(p));
+  if(availablePeople.length>0){
+    const sep=document.createElement('span');
+    sep.textContent=' | ';
+    sep.style.margin='0 8px';
+    sep.style.color='var(--c-border)';
+    av.appendChild(sep);
+    
+    availablePeople.forEach((p,i)=>{
+      const b=document.createElement('span');
+      b.className='badge';
+      b.style.backgroundColor='var(--c-green-light)';
+      b.style.color='var(--c-green)';
+      b.textContent=p;
+      av.appendChild(b);
+    });
+  }
+  
+  const box=document.getElementById('selectedTrips');
+  box.innerHTML='';
+  const items=selectedTrips();
+  if(!items.length){
+    box.innerHTML='<div class="helper" style="padding:12px 0;">등록된 출장건이 없습니다.</div>';
+    return
+  }
+  items.forEach(item=>{
+    const v=getVehicle(item.vehicle);
+    const row=document.createElement('div');
+    row.className=`list-item ${v.cls}`;
+    row.innerHTML=`<div class="maintext"><div class="inline" style="justify-content:space-between;margin-bottom:5px;"><h3>${item.destination}</h3><span class="status ${item.status==='completed'?'status-complete':'status-planned'}">${item.status==='completed'?'완료':'계획'}</span></div><p><strong>문서번호</strong> ${item.docNo}</p><p><strong>출장기간</strong> ${item.tripDate} ~ ${item.endDate}</p><p><strong>사업장/배출구</strong> ${item.destination} / ${item.outlet||'-'}</p><p><strong>시험항목</strong> ${item.risk?'<span class="risk-text">사전위험성</span>':(item.testItem||'-')}</p><p><strong>인원</strong> ${item.members.join(', ')}</p><p><strong>시험내용</strong> ${item.task}</p></div><div class="inline" style="flex-direction:column;align-items:flex-end;gap:5px;"><button onclick="openTripModal(${item.id})">상세보기</button><button onclick="removeTrip(${item.id})">출장건 삭제</button><button onclick="completeTrip(${item.id})">완료 처리</button></div>`;
+    box.appendChild(row)
+  })
+}
+function renderScheduleList(){const box=document.getElementById('scheduleList');if(!box)return;box.innerHTML='';const items=[...(state.schedules||[])].sort((a,b)=>a.date.localeCompare(b.date));if(!items.length){box.innerHTML='<div class="helper">입력된 일정이 없습니다.</div>';return}items.forEach(item=>{const row=document.createElement('div');row.className='list-item';row.innerHTML=`<div class="maintext"><h3>${item.date} · ${scheduleTypeLabel(item.type)} · ${item.name||'-'}</h3><p>${item.type==='holiday'?'전체 적용':(item.people||[]).join(', ')}</p></div><div><button onclick="deleteSchedule('${item.id}')">삭제</button></div>`;box.appendChild(row)})}
+function renderSidebar(){renderTravelerOptions();renderVehicleOptions();renderTravelers();renderMonthList();renderScheduleList();toggleScheduleFields()}
+function renderTravelerOptions(){['tripLeader','tripMember1','tripMember2','tripMember3','tripMember4','tripMember5'].forEach(id=>{const el=document.getElementById(id);const cur=el.value;el.innerHTML='<option value="">출장자 선택</option>';state.travelers.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o)});el.value=cur});renderSchedulePeopleSelect()}
+function renderVehicleOptions(){const el=document.getElementById('tripVehicle');const cur=el.value;el.innerHTML='<option value="">차량 선택</option>';VEHICLES.forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.name;el.appendChild(o)});el.value=cur}
+function renderTravelers(){const chips=document.getElementById('travelerChips');chips.innerHTML='';state.travelers.forEach(n=>{const chip=document.createElement('span');chip.className='badge';chip.textContent=n;chips.appendChild(chip)})}
+function renderMonthList(){const box=document.getElementById('monthList');box.innerHTML='';const items=filteredTrips().sort((a,b)=>a.tripDate.localeCompare(b.tripDate));if(!items.length){box.innerHTML='<div class="helper">이번 달 계획건이 없습니다.</div>';return}items.forEach(item=>{const v=getVehicle(item.vehicle);const row=document.createElement('div');row.className=`list-item ${v.cls}`;row.onclick=()=>{state.selectedDate=item.tripDate;saveState();renderDetails()};row.ondblclick=()=>openTripModal(item.id);row.innerHTML=`<div class="maintext"><h3>${item.tripDate} · ${item.destination}</h3><p>${item.docNo} · ${v.short}</p><p>${item.tripDate} ~ ${item.endDate} · ${item.members.join(', ')}</p></div>`;box.appendChild(row)})}
+function renderHistoryList(){const box=document.getElementById('historyList');box.innerHTML='';let items=state.trips.filter(t=>t.status==='completed');if(state.personFilter)items=items.filter(t=>t.members.includes(state.personFilter));const k=state.historyKeyword.trim();if(k)items=items.filter(t=>[t.docNo,t.destination,t.outlet,t.task,...t.members].join(' ').includes(k));items=items.sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));if(!items.length){box.innerHTML='<div class="helper">완료 이력이 없습니다.</div>';return}items.forEach(item=>{const v=getVehicle(item.vehicle);const row=document.createElement('div');row.className=`list-item ${v.cls}`;row.innerHTML=`<div class="maintext"><div class="inline" style="justify-content:space-between;margin-bottom:5px;"><h3>${item.destination}</h3><span class="status status-complete">완료</span></div><p><strong>문서번호</strong> ${item.docNo}</p><p><strong>출장기간</strong> ${item.tripDate} ~ ${item.endDate} · <strong>완료일</strong> ${item.completedAt||item.tripDate}</p><p><strong>시험항목</strong> ${item.risk?'<span class="risk-text">사전위험성</span>':(item.testItem||'-')}</p><p><strong>시험내용</strong> ${item.task}</p>${item.resultNote?`<p><strong>결과</strong> ${item.resultNote}</p>`:''}</div><div class="inline" style="flex-direction:column;align-items:flex-end;"><button onclick="openTripModal(${item.id})">상세보기</button></div>`;box.appendChild(row)})}
+function renderAnalytics(){const tbody=document.getElementById('monthlyDaysTable');tbody.innerHTML='';state.travelers.forEach(n=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${n}</td><td>${countDaysForPerson(n,monthTrips())}일</td><td>${countDaysForPerson(n,state.trips)}일</td>`;tbody.appendChild(tr)});const btb=document.getElementById('buddyTable');btb.innerHTML='';state.travelers.forEach(n=>{const s=buddyStats(n);const tr=document.createElement('tr');tr.innerHTML=`<td>${n}</td><td>${s.most}</td><td>${s.mostCount}</td><td>${s.least}</td><td>${s.leastCount}</td>`;btb.appendChild(tr)})}
+
+function renderDocPicker(){populateDocsFilters();
+  const list=document.getElementById('docPickerList');
+  if(!list)return;
+  const keyword=(document.getElementById('docPickerSearch')?.value||'').trim();
+  const statusF=document.getElementById('docsStatusFilter')?.value||'';
+  const regionF=document.getElementById('docsRegionFilter')?.value||'';
+  const ownerF=document.getElementById('docsOwnerFilter')?.value||'';
+  const codeF=document.getElementById('docsCodeFilter')?.value||'';
+  const testItemF=document.getElementById('docsTestItemFilter')?.value||'';
+  // 필터링
+  let items=[...state.docs].filter(d=>{
+    if(d.delayed) return false;
+    const status=computeDocStatus(d);
+    if(status!=='대기' && status!=='진행중') return false;
+    if(statusF && status!==statusF) return false;
+    if(regionF && d.region!==regionF) return false;
+    if(ownerF && d.owner!==ownerF) return false;
+    if(codeF && d.code!==codeF) return false;
+    if(testItemF && d.testItem!==testItemF) return false;
+    if(keyword && !(d.destination||'').toLowerCase().includes(keyword.toLowerCase())) return false;
+    return true;
+  });
+  const totalCount=items.length; // 전체 건수 저장
+  const docsCountEl=document.getElementById('docsCount');if(docsCountEl)docsCountEl.textContent='총 '+totalCount+'건';
+  if(keyword)items=items.filter(d=>[d.receiptDoc,d.region,d.owner,d.destination,d.outlet,d.testItem,d.task,d.code,d.note].join(' ').includes(keyword));
+  items.sort((a,b)=>{
+    const da=Number.isFinite(daysUntil(a.resultDueDate))?daysUntil(a.resultDueDate):999999;
+    const db=Number.isFinite(daysUntil(b.resultDueDate))?daysUntil(b.resultDueDate):999999;
+    return da-db;
+  });
+  
+  // ★ 전체 건수 표시 업데이트
+  const countEl=document.getElementById('docPickerCount');
+  if(countEl){
+    countEl.textContent=keyword?`(검색: ${items.length}/${totalCount}건)`:`(${totalCount}건)`;
+  }
+  
+  list.innerHTML='';
+  if(!items.length){
+    list.innerHTML='<div class="helper" style="padding:16px 0;">대기 중인 문서가 없습니다.<br><small style="color:var(--c-muted);">출장 계획이 필요한 문서만 표시됩니다.</small></div>';
+    return;
+  }
+  
+  items.forEach(doc=>{
+    const div=document.createElement('div');
+    const leftDays=daysUntil(doc.resultDueDate);
+    const dayText=Number.isFinite(leftDays)?`${leftDays}일`:'-';
+    const docStatus=computeDocStatus(doc);
+    
+    // ★ 등록 여부 — 사전위험성 출장 제외, 실제 시험 출장만 기준
+    const currentMonth=`${state.year}-${String(state.month).padStart(2,'0')}`;
+    const tripForDoc=state.trips.filter(t=>(t.docNo===(doc.receiptDoc||doc.docNo))&&t.tripDate&&!t.risk);
+    const hasThisMonth=tripForDoc.some(t=>t.tripDate.startsWith(currentMonth));
+    const hasPrevMonth=!hasThisMonth&&tripForDoc.length>0;
+    const hasTrip=hasThisMonth||hasPrevMonth;
+    const prevMonthLabel=hasPrevMonth?(()=>{
+      const d=new Date(tripForDoc[0].tripDate);
+      return `${d.getMonth()+1}월 등록됨`;
+    })():'';
+    div.className='doc-pick-item';
+    div.dataset.docId=doc.id; // ★ 문서 ID 저장
+    if(Number.isFinite(leftDays)&&leftDays<30) div.style.borderColor='#fcd34d';
+    if(docStatus==='진행중') div.style.backgroundColor='#f0fdf4'; // 진행중 구분
+    if(hasThisMonth){
+      div.style.backgroundColor='#e0e7ff';
+      div.style.opacity='0.6';
+      div.style.cursor='not-allowed';
+    } else if(hasPrevMonth){
+      div.style.backgroundColor='#e0e7ff';
+      div.style.opacity='0.85';
+      div.style.cursor='pointer';
+    }
+    div.setAttribute('role','button');
+    div.setAttribute('tabindex','0');
+    
+    div.ondblclick=function(e){
+      if(e.target.type==='checkbox') return;
+      if(hasThisMonth){alert('이 문서는 이미 이번 달 출장으로 등록되었습니다.');return;}
+      selectDocForTrip(doc.id);closeDocPicker();
+    };
+    div.onclick=function(e){
+      if(e.target.type==='checkbox') return;
+      if(hasThisMonth){alert('이 문서는 이미 이번 달 출장으로 등록되었습니다.');return;}
+      const checkbox=div.querySelector('.doc-picker-checkbox');
+      if(checkbox) checkbox.checked=!checkbox.checked;
+    };
+    // ★ 상태 배지
+    const statusBadge=docStatus==='진행중'?'<span class="status status-inprogress" style="font-size:11px;padding:2px 6px;">진행중</span>':'<span class="status status-waiting" style="font-size:11px;padding:2px 6px;">대기</span>';
+    const registeredBadge=hasThisMonth
+      ?'<span class="status" style="font-size:11px;padding:2px 6px;background:#818cf8;color:white;">이번 달 등록됨</span>'
+      :hasPrevMonth
+        ?`<span class="status" style="font-size:11px;padding:2px 6px;background:#818cf8;color:white;">이전달(${prevMonthLabel})</span>`
+        :'';
+    
+    const riskBadge=doc.riskAssessment==='필요'?'<span style="font-size:10px;padding:2px 5px;background:#fef2f2;color:#ef4444;border-radius:3px;font-weight:600;">사전위험성 필요</span>':'<span style="font-size:10px;padding:2px 5px;background:#f0fdf4;color:#10b981;border-radius:3px;font-weight:600;">사전위험성 완료</span>';
+    div.innerHTML=`<div style="display:flex;align-items:flex-start;gap:8px;"><input type="checkbox" class="doc-picker-checkbox" data-doc-id="${doc.id}" style="margin-top:3px;flex-shrink:0;" ${hasThisMonth?'disabled':''} /><div style="flex:1;"><h3><span style="flex:1;">${doc.destination||'-'}</span>${registeredBadge}${statusBadge}<span class="doc-days-badge ${Number.isFinite(leftDays)&&leftDays<30?'alert':''}" style="margin-left:6px;">D-${dayText}</span></h3><p><strong>접수 문서</strong> ${doc.receiptDoc||doc.docNo||'-'} · <strong>지역</strong> ${doc.region||'-'} · <strong>담당자</strong> ${doc.owner||'-'} · ${riskBadge}</p><p><strong>배출구</strong> ${doc.outlet||'-'} · <strong>시험항목</strong> ${doc.testItem||'-'}</p><p><strong>시험내용</strong> ${doc.task||'-'}</p></div></div>`;
+    
+    list.appendChild(div);
+  });
+}
+function openDocPicker(){
+  const m=document.getElementById('docPickerModal');
+  if(m){
+    m.hidden=false;
+    m.style.removeProperty('display'); /* 인라인 스타일 제거 → CSS 클래스가 제어 */
+    m.classList.remove('hidden');
+  }
+  renderDocPicker();
+}
+function closeDocPicker(){
+  const m=document.getElementById('docPickerModal');
+  if(!m)return;
+  m.classList.add('hidden');
+  m.style.setProperty('display','none','important'); /* !important로 인라인 스타일 완전 차단 */
+  m.hidden=true;
+}
+function selectDocForTrip(id){
+  const doc=state.docs.find(d=>d.id===id);
+  if(!doc)return;
+  
+  // 기존 복수 선택 정보 제거
+  clearMultiSelectInfo();
+  
+  document.getElementById('tripDocNo').value=doc.receiptDoc||doc.docNo||'';
+  document.getElementById('tripDestination').value=doc.destination||'';
+  document.getElementById('tripOutlet').value=doc.outlet||'';
+  document.getElementById('tripTestItem').value=doc.testItem||'';
+  document.getElementById('tripTask').value=doc.task||'';
+  document.getElementById('tripRegion').value=doc.region||'';
+  document.getElementById('tripOwner').value=doc.owner||'';
+  autoFillTravelers();
+  renderIssueBox();
+}
+function multiSelectDocs(){
+  // ★ 체크된 문서들 수집
+  const checked=Array.from(document.querySelectorAll('.doc-picker-checkbox:checked'));
+  if(!checked.length){
+    alert('최소 1개 이상의 문서를 선택하세요.');
+    return;
+  }
+  
+  const selectedDocs=checked.map(cb=>{
+    const docId=cb.dataset.docId;
+    return state.docs.find(d=>d.id===docId);
+  }).filter(Boolean);
+  
+  if(!selectedDocs.length) return;
+  
+  // ★ 색상 팔레트 (최대 10개)
+  const colors=['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#06b6d4','#6366f1'];
+  
+  // ★ 복수 선택 문서 정보 저장 (전역 변수)
+  state.multiSelectData=selectedDocs.map((d,idx)=>({
+    docNo:d.receiptDoc||d.docNo||'',
+    region:d.region||'',
+    destination:d.destination||'',
+    outlet:d.outlet||'',
+    testItem:d.testItem||'',
+    task:d.task||'',
+    owner:d.owner||'',
+    color:colors[idx%colors.length]
+  }));
+  
+  // ★ 각 필드에 색상별로 정보 표시 (간결하게)
+  document.getElementById('tripDocNo').value='[복수 선택: '+selectedDocs.length+'건]';
+  
+  // 사업장명 (색상별, 쉼표 구분)
+  document.getElementById('tripDestination').value=selectedDocs.map(d=>d.destination).join(', ');
+  
+  // 지역 (복수면 색상별)
+  const regions=[...new Set(state.multiSelectData.map(d=>d.region))];
+  document.getElementById('tripRegion').value=state.multiSelectData.map(d=>d.region||'-').join(', ');
+  
+  // 담당자 (색상별)
+  document.getElementById('tripOwner').value=state.multiSelectData.map(d=>d.owner||'-').join(', ');
+  
+  // 배출구 (색상별)
+  document.getElementById('tripOutlet').value=state.multiSelectData.map(d=>d.outlet?'#'+d.outlet:'-').join(', ');
+  
+  // 시험항목 (색상별)
+  document.getElementById('tripTestItem').value=state.multiSelectData.map(d=>d.testItem||'-').join(', ');
+  
+  // 시험내용 (줄바꿈)
+  document.getElementById('tripTask').value=state.multiSelectData.map((d,i)=>`[${i+1}] ${d.task||'-'}`).join('\n');
+  
+  // ★ 출장자 자동 채우기: 사업장 담당자 우선
+  autoFillTravelers();
+  
+  renderIssueBox();
+  renderMultiSelectInfo();
+  closeDocPicker();
+}
+function autoFillTravelers(){
+  let owners=[];
+  if(state.multiSelectData && state.multiSelectData.length>0){
+    owners=state.multiSelectData.map(d=>d.owner).filter(Boolean);
+  } else {
+    const owner=document.getElementById('tripOwner').value.trim();
+    if(owner) owners=[owner];
+  }
+  if(!owners.length) return;
+  const memberFields=['tripLeader','tripMember1','tripMember2','tripMember3','tripMember4','tripMember5'];
+  owners.forEach((owner,index)=>{
+    if(index<memberFields.length){
+      const field=document.getElementById(memberFields[index]);
+      if(field) field.value=owner;
+    }
+  });
+}
+
+function renderMultiSelectInfo(){
+  if(!state.multiSelectData || !state.multiSelectData.length) return;
+  
+  // Helper 함수: input을 contenteditable div로 변환하여 색상 텍스트 표시
+  function addColoredText(inputId){
+    const input=document.getElementById(inputId);
+    if(!input) return;
+    
+    const values=input.value.split(',').map(v=>v.trim());
+    
+    // 기존 helper 제거
+    let helper=input.parentElement.querySelector('.colored-text-helper');
+    if(!helper){
+      helper=document.createElement('div');
+      helper.className='colored-text-helper';
+      helper.style.cssText='font-size:13px;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa;line-height:1.5;';
+      input.parentElement.appendChild(helper);
+    }
+    
+    // 색상별 텍스트 생성
+    const coloredHtml=values.map((val,i)=>{
+      const color=state.multiSelectData[i]?.color||'#000';
+      return `<span style="color:${color};font-weight:600;margin-right:4px;">${val}${i<values.length-1?',':''}</span>`;
+    }).join(' ');
+    
+    helper.innerHTML=coloredHtml;
+    
+    // 원본 input 숨기기
+    input.style.display='none';
+  }
+  
+  // 시험항목 특수 처리: 같은 출장건(사업장)의 항목들은 같은 색
+  function addColoredTestItems(){
+    const input=document.getElementById('tripTestItem');
+    if(!input) return;
+    
+    const values=input.value.split(',').map(v=>v.trim());
+    
+    let helper=input.parentElement.querySelector('.colored-text-helper');
+    if(!helper){
+      helper=document.createElement('div');
+      helper.className='colored-text-helper';
+      helper.style.cssText='font-size:13px;margin-top:4px;padding:8px;border:1px solid #e5e7eb;border-radius:6px;background:#fafafa;line-height:1.5;';
+      input.parentElement.appendChild(helper);
+    }
+    
+    // 각 출장건별로 그룹화 (사업장명으로)
+    const grouped=state.multiSelectData.map((d,idx)=>{
+      // 해당 출장건의 시험항목들 찾기
+      const items=d.testItem.split(',').map(v=>v.trim()).filter(Boolean);
+      return {color:d.color, items:items};
+    });
+    
+    // HTML 생성: 각 그룹의 항목들을 같은 색으로
+    const coloredHtml=grouped.map((g,i)=>{
+      const itemsHtml=g.items.map((item,j)=>{
+        return `<span style="color:${g.color};font-weight:600;">${item}</span>`;
+      }).join('<span style="color:#999;">, </span>');
+      return itemsHtml;
+    }).join('<span style="color:#999;">, </span>');
+    
+    helper.innerHTML=coloredHtml;
+    input.style.display='none';
+  }
+  
+  // 각 필드에 색상 텍스트 적용
+  addColoredText('tripDestination');
+  addColoredText('tripRegion');
+  addColoredText('tripOwner');
+  addColoredText('tripOutlet');
+  addColoredTestItems(); // 시험항목은 특수 처리
+}
+function clearMultiSelectInfo(){
+  // 모든 헬퍼 제거
+  document.querySelectorAll('.multi-select-helper').forEach(el=>el.remove());
+  document.querySelectorAll('.colored-text-helper').forEach(el=>el.remove());
+  
+  // 숨긴 input 다시 표시하고 값도 초기화
+  ['tripDestination','tripRegion','tripOwner','tripOutlet','tripTestItem'].forEach(id=>{
+    const input=document.getElementById(id);
+    if(input){
+      input.style.display='';  // 보이게
+      input.style.background='';  // 배경색 제거
+      input.style.fontWeight='';  // 폰트 굵기 제거
+      // input.value는 clearForm에서 초기화하므로 여기서는 안 함
+    }
+  });
+  
+  // 복수 선택 데이터 초기화
+  state.multiSelectData=null;
+}
+function renderAllDocs(){
+  // 필터 값
+  const regionFilter=document.getElementById('allDocsRegionFilter')?.value||'';
+  const ownerFilter=document.getElementById('allDocsOwnerFilter')?.value||'';
+  const statusFilter=document.getElementById('allDocsStatusFilter')?.value||'';
+  const codeFilter=document.getElementById('allDocsCodeFilter')?.value||'';
+  const testItemFilter=document.getElementById('allDocsTestItemFilter')?.value||'';
+  const searchText=(document.getElementById('allDocsSearch')?.value||'').trim().toLowerCase();
+  
+  // 전체 문서 필터링
+  let items=[...state.docs];
+  if(regionFilter) items=items.filter(d=>d.region===regionFilter);
+  if(ownerFilter) items=items.filter(d=>d.owner===ownerFilter);
+  if(statusFilter) items=items.filter(d=>computeDocStatus(d)===statusFilter);
+  if(codeFilter) items=items.filter(d=>d.code===codeFilter);
+  if(testItemFilter) items=items.filter(d=>d.testItem===testItemFilter);
+  if(searchText) items=items.filter(d=>(d.destination||'').toLowerCase().includes(searchText) || (d.outlet||'').toLowerCase().includes(searchText));
+  
+  // 결과통보일 임박순 정렬
+  items.sort((a,b)=>{
+    const da=Number.isFinite(daysUntil(a.resultDueDate))?daysUntil(a.resultDueDate):999999;
+    const db=Number.isFinite(daysUntil(b.resultDueDate))?daysUntil(b.resultDueDate):999999;
+    return da-db;
+  });
+  
+  // 건수 표시
+  const countEl=document.getElementById('allDocsCount');
+  if(countEl){
+    const delayed=items.filter(d=>d.delayed).length;
+    const waiting=items.filter(d=>computeDocStatus(d)==='대기').length;
+    const inProgress=items.filter(d=>computeDocStatus(d)==='진행중').length;
+    const completed=items.filter(d=>computeDocStatus(d)==='완료').length;
+    countEl.textContent=`총 ${items.length}건 (대기 ${waiting} | 진행 ${inProgress} | 완료 ${completed} | 연기 ${delayed})`;
+  }
+  
+  // 테이블 렌더링
+  const tbody=document.getElementById('allDocsTable');
+  if(!tbody)return;
+  tbody.innerHTML='';
+  
+  if(!items.length){
+    tbody.innerHTML='<tr><td colspan="14" class="helper" style="padding:16px;">조건에 맞는 문서가 없습니다.</td></tr>';
+    return;
+  }
+  
+  items.forEach(doc=>{
+    const status=computeDocStatus(doc);
+    const leftDays=daysUntil(doc.resultDueDate);
+    const dayText=Number.isFinite(leftDays)?`${leftDays}일`:'-';
+    const isUrgent=Number.isFinite(leftDays)&&leftDays<30;
+    
+    const tr=document.createElement('tr');
+    if(doc.delayed) tr.classList.add('delayed-row');
+    tr.innerHTML=`
+      <td class="${isUrgent?'day-alert':''}">${dayText}</td>
+      <td><span class="status ${status==='완료'?'status-complete':status==='진행중'?'status-progress':'status-planned'}">${status}</span></td>
+      <td>${doc.receiptDoc||doc.docNo||'-'}</td>
+      <td>${doc.code||'-'}</td>
+      <td>${doc.region||'-'}</td>
+      <td>${doc.owner||'-'}</td>
+      <td><strong>${doc.destination}</strong></td>
+      <td>${doc.outlet||'-'}</td>
+      <td>${doc.testItem||'-'}</td>
+      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${doc.task||'-'}</td>
+      <td>${doc.resultDueDate||'-'}</td>
+      <td>${status==='완료'?(doc.completeMemo||'-'):(doc.note||'-')}</td>
+      <td><button onclick="delayDoc('${doc.id}')"${doc.delayed?' disabled':''}>연기</button></td>
+      <td><button onclick="deleteDoc('${doc.id}')">삭제</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  
+  // 필터 옵션 채우기 (최초 렌더링 시)
+  populateAllDocsFilters();
+}
+function populateAllDocsFilters(){
+  const regionSelect=document.getElementById('allDocsRegionFilter');
+  const ownerSelect=document.getElementById('allDocsOwnerFilter');
+  const codeSelect=document.getElementById('allDocsCodeFilter');
+  const testItemSelect=document.getElementById('allDocsTestItemFilter');
+  
+  if(regionSelect && regionSelect.options.length===1){
+    const regions=new Set(state.docs.map(d=>d.region).filter(Boolean));
+    regions.forEach(r=>{
+      const opt=document.createElement('option');
+      opt.value=r;
+      opt.textContent=r;
+      regionSelect.appendChild(opt);
+    });
+  }
+  
+  if(ownerSelect && ownerSelect.options.length===1){
+    const owners=new Set(state.docs.map(d=>d.owner).filter(Boolean));
+    owners.forEach(o=>{
+      const opt=document.createElement('option');
+      opt.value=o;
+      opt.textContent=o;
+      ownerSelect.appendChild(opt);
+    });
+  }
+  
+  if(codeSelect && codeSelect.options.length===1){
+    const codes=new Set(state.docs.map(d=>d.code).filter(Boolean));
+    [...codes].sort().forEach(c=>{
+      const opt=document.createElement('option');
+      opt.value=c;
+      opt.textContent=c;
+      codeSelect.appendChild(opt);
+    });
+  }
+  
+  if(testItemSelect && testItemSelect.options.length===1){
+    const testItems=new Set(state.docs.map(d=>d.testItem).filter(Boolean));
+    [...testItems].sort().forEach(t=>{
+      const opt=document.createElement('option');
+      opt.value=t;
+      opt.textContent=t;
+      testItemSelect.appendChild(opt);
+    });
+  }
+}
+
+function populateDelayedFilters(){
+  const base=[...state.docs].filter(d=>computeDocStatus(d)==='연기');
+  function fillOpts(id, vals){
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    el.innerHTML='<option value="">전체</option>';
+    [...new Set(vals)].filter(Boolean).sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v;
+      if(v===cur) o.selected=true;
+      el.appendChild(o);
+    });
+    if(cur) el.value=cur;
+  }
+  fillOpts('delayedRegionFilter', base.map(d=>d.region));
+  fillOpts('delayedOwnerFilter', base.map(d=>d.owner));
+  fillOpts('delayedCodeFilter', base.map(d=>d.code));
+  fillOpts('delayedTestItemFilter', base.map(d=>d.testItem));
+}
+
+function populateCompletedFilters(){
+  const base=[...state.docs].filter(d=>computeDocStatus(d)==='완료');
+  function fillOpts(id, vals){
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    el.innerHTML='<option value="">전체</option>';
+    [...new Set(vals)].filter(Boolean).sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v;
+      if(v===cur) o.selected=true;
+      el.appendChild(o);
+    });
+    if(cur) el.value=cur;
+  }
+  fillOpts('completedRegionFilter', base.map(d=>d.region));
+  fillOpts('completedOwnerFilter', base.map(d=>d.owner));
+  fillOpts('completedCodeFilter', base.map(d=>d.code));
+  fillOpts('completedTestItemFilter', base.map(d=>d.testItem));
+}
+
+function populateDocsFilters(){
+  function fillOpts(id, vals){
+    const el=document.getElementById(id);
+    if(!el) return;
+    const cur=el.value;
+    el.innerHTML='<option value="">전체</option>';
+    [...new Set(vals)].filter(Boolean).sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v;
+      if(v===cur) o.selected=true;
+      el.appendChild(o);
+    });
+    if(cur) el.value=cur;
+  }
+  const base=[...state.docs].filter(d=>!d.delayed&&(computeDocStatus(d)==='대기'||computeDocStatus(d)==='진행중'));
+  fillOpts('docsRegionFilter', base.map(d=>d.region));
+  fillOpts('docsOwnerFilter', base.map(d=>d.owner));
+  fillOpts('docsCodeFilter', base.map(d=>d.code));
+  fillOpts('docsOutletFilter', base.map(d=>d.outlet));
+  fillOpts('docsTestItemFilter', base.map(d=>d.testItem));
+}
+function populateDelayedFilters(){
+  function fillOpts(id, vals){
+    const el=document.getElementById(id);
+    if(!el) return;
+    const cur=el.value;
+    el.innerHTML='<option value="">전체</option>';
+    [...new Set(vals)].filter(Boolean).sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v;
+      if(v===cur) o.selected=true;
+      el.appendChild(o);
+    });
+    if(cur) el.value=cur;
+  }
+  const base=[...state.docs].filter(d=>computeDocStatus(d)==='연기');
+  fillOpts('delayedRegionFilter', base.map(d=>d.region));
+  fillOpts('delayedOwnerFilter', base.map(d=>d.owner));
+  fillOpts('delayedCodeFilter', base.map(d=>d.code));
+  fillOpts('delayedOutletFilter', base.map(d=>d.outlet));
+  fillOpts('delayedTestItemFilter', base.map(d=>d.testItem));
+}
+function populateCompletedFilters(){
+  function fillOpts(id, vals){
+    const el=document.getElementById(id);
+    if(!el) return;
+    const cur=el.value;
+    el.innerHTML='<option value="">전체</option>';
+    [...new Set(vals)].filter(Boolean).sort().forEach(v=>{
+      const o=document.createElement('option');
+      o.value=v; o.textContent=v;
+      if(v===cur) o.selected=true;
+      el.appendChild(o);
+    });
+    if(cur) el.value=cur;
+  }
+  const base=[...state.docs].filter(d=>computeDocStatus(d)==='완료');
+  fillOpts('completedRegionFilter', base.map(d=>d.region));
+  fillOpts('completedOwnerFilter', base.map(d=>d.owner));
+  fillOpts('completedCodeFilter', base.map(d=>d.code));
+  fillOpts('completedOutletFilter', base.map(d=>d.outlet));
+  fillOpts('completedTestItemFilter', base.map(d=>d.testItem));
+}
+function renderDocs(){
+  populateDocsFilters();
+  const tbody=document.getElementById('docsTable');
+  tbody.innerHTML='';
+
+  // 필터 값 읽기
+  const statusF=document.getElementById('docsStatusFilter')?.value||'';
+  const regionF=document.getElementById('docsRegionFilter')?.value||'';
+  const ownerF=document.getElementById('docsOwnerFilter')?.value||'';
+  const codeF=document.getElementById('docsCodeFilter')?.value||'';
+  const testItemF=document.getElementById('docsTestItemFilter')?.value||'';
+  const searchF=(document.getElementById('docsSearch')?.value||'').trim().toLowerCase();
+
+  // ★ 완료 제외하고 대기/진행중/연기 모두 표시 후 필터 적용
+  const pending=[...state.docs].filter(doc=>{
+    const status=computeDocStatus(doc);
+    if(status==='완료') return false;
+    if(statusF && status!==statusF) return false;
+    if(regionF && doc.region!==regionF) return false;
+    if(ownerF && doc.owner!==ownerF) return false;
+    if(codeF && doc.code!==codeF) return false;
+    if(testItemF && doc.testItem!==testItemF) return false;
+    if(searchF && !(doc.destination||'').toLowerCase().includes(searchF)
+               && !(doc.outlet||'').toLowerCase().includes(searchF)
+               && !(doc.testItem||'').toLowerCase().includes(searchF)) return false;
+    return true;
+  }).sort((a,b)=>{
+    const sa=computeDocStatus(a),sb=computeDocStatus(b);
+    const order={'대기':1,'진행중':2,'연기':3};
+    const oa=order[sa]||99, ob=order[sb]||99;
+    if(oa!==ob)return oa-ob;
+    const da=Number.isFinite(daysUntil(a.resultDueDate))?daysUntil(a.resultDueDate):999999;
+    const db=Number.isFinite(daysUntil(b.resultDueDate))?daysUntil(b.resultDueDate):999999;
+    return da-db;
+  });
+
+  // 건수 배지 업데이트
+  const countEl=document.getElementById('docsCount');
+  if(countEl) countEl.textContent=`총 ${pending.length}건`;
+
+  const summaryEl=document.getElementById('docSummary');
+  if(summaryEl){
+    const total=state.docs.length;
+    const completed=state.docs.filter(d=>computeDocStatus(d)==='완료').length;
+    const inProgress=state.docs.filter(d=>computeDocStatus(d)==='진행중').length;
+    const waiting=state.docs.filter(d=>computeDocStatus(d)==='대기').length;
+    const postponed=state.docs.filter(d=>computeDocStatus(d)==='연기').length;
+    summaryEl.innerHTML=`<div class="item"><div class="k">총 접수 문서</div><div class="v">${total}</div></div><div class="item"><div class="k">완료 문서</div><div class="v" style="color:var(--c-green)">${completed}</div></div><div class="item"><div class="k">진행중 문서</div><div class="v" style="color:var(--c-sky)">${inProgress}</div></div><div class="item"><div class="k">대기 문서</div><div class="v" style="color:var(--c-blue)">${waiting}</div></div><div class="item"><div class="k">연기 문서</div><div class="v" style="color:var(--c-amber)">${postponed}</div></div>`;
+  }
+  pending.forEach(doc=>{
+    const status=computeDocStatus(doc);
+    const due=Number.isFinite(daysUntil(doc.resultDueDate))?daysUntil(doc.resultDueDate):'-';
+    let dueStyle='';
+    if(due!=='-'){
+      if(due<0)dueStyle='color:var(--c-rose);font-weight:700;';
+      else if(due<=7)dueStyle='color:var(--c-amber);font-weight:700;';
+      else dueStyle='color:var(--c-green);';
+    }
+    let statusCls='status-planned';
+    if(status==='완료')statusCls='status-complete';
+    else if(status==='지연')statusCls='status-delay';
+    else if(status==='진행중')statusCls='status-inprogress';
+    else if(status==='대기')statusCls='status-waiting';
+    else if(status==='연기')statusCls='status-postponed';
+    const actionBtn=status==='연기'?`<button onclick="undoDelayDoc('${doc.id}')">연기해제</button>`:`<button onclick="delayDoc('${doc.id}')">연기</button>`;
+    const tr=document.createElement('tr');
+    const riskStyle=doc.riskAssessment==='필요'?'color:#ef4444;font-weight:600;':doc.riskAssessment&&doc.riskAssessment.startsWith('진행중')?'color:#f59e0b;font-weight:600;':'color:#10b981;font-weight:600;';
+    const riskCell=`<span style="${riskStyle}">${doc.riskAssessment||'완료'}</span>`;
+    tr.innerHTML=`<td style="${dueStyle}text-align:center;">${due!=='-'?due+'일':'-'}</td><td style="text-align:center;"><span class="status ${statusCls}">${status}</span></td><td>${doc.receiptDoc||doc.docNo||'-'}</td><td style="text-align:center;">${riskCell}</td><td>${doc.code||'-'}</td><td>${doc.region||'-'}</td><td>${doc.owner||'-'}</td><td title="${doc.destination||''}">${doc.destination||'-'}</td><td title="${doc.outlet||''}">${doc.outlet||'-'}</td><td title="${doc.testItem||''}">${doc.testItem||'-'}</td><td title="${doc.task||''}">${doc.task||'-'}</td><td>${doc.resultDueDate||'-'}</td><td title="${doc.note||''}">${doc.note||'-'}</td><td style="text-align:center;">${actionBtn}</td><td style="text-align:center;"><button onclick="deleteDoc('${doc.id}')" style="color:var(--c-rose);border-color:#fca5a5;">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderDelayedDocs(){populateDelayedFilters();
+  const tbody=document.getElementById('delayedDocsTable');
+  tbody.innerHTML='';
+  const regionF=document.getElementById('delayedRegionFilter')?.value||'';
+  const ownerF=document.getElementById('delayedOwnerFilter')?.value||'';
+  const codeF=document.getElementById('delayedCodeFilter')?.value||'';
+  const testItemF=document.getElementById('delayedTestItemFilter')?.value||'';
+  const searchF=(document.getElementById('delayedSearch')?.value||'').trim().toLowerCase();
+  let postponed=[...state.docs].filter(d=>{
+    if(computeDocStatus(d)!=='연기') return false;
+    if(regionF && d.region!==regionF) return false;
+    if(ownerF && d.owner!==ownerF) return false;
+    if(codeF && d.code!==codeF) return false;
+    if(testItemF && d.testItem!==testItemF) return false;
+    if(searchF && !(d.destination||'').toLowerCase().includes(searchF)) return false;
+    return true;
+  });
+  const delayedCountEl=document.getElementById('delayedCount');if(delayedCountEl)delayedCountEl.textContent='총 '+postponed.length+'건';
+  postponed=postponed.sort((a,b)=>{
+    const da=Number.isFinite(daysUntil(a.resultDueDate))?daysUntil(a.resultDueDate):999999;
+    const db=Number.isFinite(daysUntil(b.resultDueDate))?daysUntil(b.resultDueDate):999999;
+    return da-db;
+  });
+  if(!postponed.length){
+    tbody.innerHTML='<tr><td colspan="14" class="helper" style="padding:16px;">연기된 항목이 없습니다.</td></tr>';
+    return;
+  }
+  postponed.forEach(doc=>{
+    const due=Number.isFinite(daysUntil(doc.resultDueDate))?daysUntil(doc.resultDueDate):'-';
+    let dueStyle='';
+    if(due!=='-'){
+      if(due<0)dueStyle='color:var(--c-rose);font-weight:700;';
+      else if(due<=7)dueStyle='color:var(--c-amber);font-weight:700;';
+      else dueStyle='color:var(--c-green);';
+    }
+    // 연기사유 표시 (없으면 기본 메시지)
+    const reasonText=doc.delayReason||(doc.csvProgress==='연기'?'엑셀 업로드 (연기 상태)':'연기사유 없음');
+    
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="${dueStyle}text-align:center;">${due!=='-'?due+'일':'-'}</td><td style="text-align:center;"><span class="status status-postponed">연기</span></td><td>${doc.receiptDoc||doc.docNo||'-'}</td><td>${doc.code||'-'}</td><td>${doc.region||'-'}</td><td>${doc.owner||'-'}</td><td>${doc.destination||'-'}</td><td>${doc.outlet||'-'}</td><td>${doc.testItem||'-'}</td><td>${doc.task||'-'}</td><td>${doc.resultDueDate||'-'}</td><td>${reasonText}</td><td style="text-align:center;"><button onclick="undoDelayDoc('${doc.id}')">연기해제</button></td><td style="text-align:center;"><button onclick="deleteDoc('${doc.id}')" style="color:var(--c-rose);border-color:#fca5a5;">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderCompletedDocs(){populateCompletedFilters();
+  const tbody=document.getElementById('completedDocsTable');
+  tbody.innerHTML='';
+  const regionF=document.getElementById('completedRegionFilter')?.value||'';
+  const ownerF=document.getElementById('completedOwnerFilter')?.value||'';
+  const codeF=document.getElementById('completedCodeFilter')?.value||'';
+  const testItemF=document.getElementById('completedTestItemFilter')?.value||'';
+  const searchF=(document.getElementById('completedSearch')?.value||'').trim().toLowerCase();
+  let completed=[...state.docs].filter(d=>{
+    if(computeDocStatus(d)!=='완료') return false;
+    if(regionF && d.region!==regionF) return false;
+    if(ownerF && d.owner!==ownerF) return false;
+    if(codeF && d.code!==codeF) return false;
+    if(testItemF && d.testItem!==testItemF) return false;
+    if(searchF && !(d.destination||'').toLowerCase().includes(searchF)) return false;
+    return true;
+  });
+  const completedCountEl=document.getElementById('completedCount');if(completedCountEl)completedCountEl.textContent='총 '+completed.length+'건';
+  completed=completed.sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));if(!completed.length){tbody.innerHTML='<tr><td colspan="13" class="helper" style="padding:16px;">완료 이력이 없습니다.</td></tr>';return}completed.forEach(doc=>{const tr=document.createElement('tr');tr.innerHTML=`<td style="font-size:11px;">${doc.completedAt||'-'}</td><td style="text-align:center;"><span class="status status-complete">완료</span></td><td style="font-size:11px;">${doc.receiptDoc||doc.docNo||'-'}</td><td style="font-size:11px;">${doc.code||'-'}</td><td style="font-size:11px;">${doc.region||'-'}</td><td style="font-size:11px;">${doc.owner||'-'}</td><td title="${doc.destination||''}" style="font-size:11px;">${doc.destination||'-'}</td><td title="${doc.outlet||''}" style="font-size:11px;">${doc.outlet||'-'}</td><td title="${doc.testItem||''}" style="font-size:11px;">${doc.testItem||'-'}</td><td title="${doc.task||''}" style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${doc.task||'-'}</td><td style="font-size:11px;">${doc.resultDueDate||'-'}</td><td title="${doc.note||doc.completeMemo||''}" style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${doc.note||doc.completeMemo||'-'}</td><td style="text-align:center;"><button onclick="undoCompleteDoc('${doc.id}')" style="font-size:11px;padding:4px 8px;">되돌리기</button></td>`;tbody.appendChild(tr)})}
+function renderUpdateHistory(){
+  const tbody=document.getElementById('updateHistoryTable');
+  tbody.innerHTML='';
+  const summaryEl=document.getElementById('updateHistorySummary');
+  
+  if(summaryEl){
+    const totalChanges=state.updateHistory.length;
+    const newItems=state.updateHistory.filter(h=>h.type==='신규').length;
+    const updates=state.updateHistory.filter(h=>h.type==='수정').length;
+    summaryEl.innerHTML=`<div class="item"><div class="k">총 변경사항</div><div class="v">${totalChanges}</div></div><div class="item"><div class="k">신규 추가</div><div class="v" style="color:var(--c-green)">${newItems}</div></div><div class="item"><div class="k">기존 수정</div><div class="v" style="color:var(--c-sky)">${updates}</div></div>`;
+  }
+  
+  if(!state.updateHistory.length){
+    tbody.innerHTML='<tr><td colspan="7" class="helper" style="padding:16px;">업데이트 이력이 없습니다. 엑셀을 업로드하면 변경사항이 기록됩니다.</td></tr>';
+    return;
+  }
+  
+  state.updateHistory.forEach(item=>{
+    const tr=document.createElement('tr');
+    const typeClass=item.type==='신규'?'status-complete':'status-inprogress';
+    tr.innerHTML=`<td>${item.timestamp}</td><td style="text-align:center;"><span class="status ${typeClass}">${item.type}</span></td><td>${item.destination}</td><td>${item.receiptDoc}</td><td>${item.field}</td><td>${item.oldValue}</td><td>${item.newValue}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function switchTab(tab){state.activeTab=tab;['planner','history','analytics','allDocs','docs','delayedDocs','completedDocs','updateHistory','ai'].forEach(k=>document.getElementById(k+'View').classList.toggle('hidden',tab!==k));document.getElementById('showPlannerBtn').classList.toggle('active',tab==='planner');document.getElementById('showHistoryBtn').classList.toggle('active',tab==='history');document.getElementById('showAnalyticsBtn').classList.toggle('active',tab==='analytics');document.getElementById('showAllDocsBtn').classList.toggle('active',tab==='allDocs');document.getElementById('showDocsBtn').classList.toggle('active',tab==='docs');if(tab==='docs')populateDocsFilters();if(tab==='delayedDocs')populateDelayedFilters();if(tab==='completedDocs')populateCompletedFilters();document.getElementById('showDelayedDocsBtn').classList.toggle('active',tab==='delayedDocs');document.getElementById('showCompletedDocsBtn').classList.toggle('active',tab==='completedDocs');document.getElementById('showUpdateHistoryBtn').classList.toggle('active',tab==='updateHistory');document.getElementById('showAiBtn').classList.toggle('active',tab==='ai');saveState()}
+function renderCurrentTab(){if(state.activeTab==='planner'){renderWeekBoards();renderDetails();renderMonthList()}else if(state.activeTab==='history'){renderHistoryList()}else if(state.activeTab==='analytics'){renderAnalytics()}else if(state.activeTab==='allDocs'){renderAllDocs()}else if(state.activeTab==='docs'){renderDocs()}else if(state.activeTab==='delayedDocs'){renderDelayedDocs()}else if(state.activeTab==='completedDocs'){renderCompletedDocs()}else if(state.activeTab==='updateHistory'){renderUpdateHistory()}else if(state.activeTab==='ai'){/* AI 탭은 별도 이벤트로 동작 */}}
+function renderAll(){renderMonthTabs();renderStats();renderPersonFilter();renderSidebar();renderCurrentTab();document.getElementById('historySearch').value=state.historyKeyword||'';switchTab(state.activeTab||'planner')}
+function bindEvents(){document.getElementById('addTripBtn').onclick=addTrip;document.getElementById('tripListBtn').onclick=openDocPicker;document.getElementById('addTravelerBtn').onclick=addTraveler;document.getElementById('addScheduleBtn').onclick=addSchedule;document.getElementById('scheduleType').addEventListener('change',toggleScheduleFields);document.getElementById('exportBtn').onclick=exportJson;document.getElementById('pdfBtn').onclick=()=>window.print();document.getElementById('importBtn').onclick=()=>document.getElementById('fileInput').click();document.getElementById('importDocsBtn').onclick=()=>document.getElementById('docExcelInput').click();document.getElementById('undoUploadBtn').onclick=undoLastUpload;document.getElementById('fileInput').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)importJson(f);e.target.value=''});document.getElementById('docExcelInput').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)parseDocExcel(f);e.target.value=''});
+['tripDate','tripEndDate','tripVehicle','tripLeader','tripMember1','tripMember2','tripMember3','tripMember4','tripMember5','tripRisk'].forEach(id=>document.getElementById(id).addEventListener('change',renderIssueBox));
+// ★ 사전위험성 체크 시 시험항목 자동입력
+document.getElementById('tripRisk').addEventListener('change',function(){
+  const el=document.getElementById('tripTestItem');
+  if(this.checked){el.value='사전위험성';el.style.color='#ef4444';el.style.fontWeight='700';}
+  else{if(el.value==='사전위험성')el.value='';el.style.color='';el.style.fontWeight='';}
+});
+document.getElementById('modalEditBtn').onclick=function(){ editTripFromModal(state.modalTripId); };
+['tripDocNo','tripOwner','tripRegion','tripDestination','tripOutlet','tripTestItem','tripTask','tripNote'].forEach(id=>{document.getElementById(id).addEventListener('input',scheduleIssueBox);document.getElementById(id).addEventListener('change',renderIssueBox)});
+document.getElementById('showPlannerBtn').onclick=()=>{switchTab('planner');renderCurrentTab()};document.getElementById('showHistoryBtn').onclick=()=>{switchTab('history');renderCurrentTab()};document.getElementById('showAnalyticsBtn').onclick=()=>{switchTab('analytics');renderCurrentTab()};document.getElementById('showAllDocsBtn').onclick=()=>{switchTab('allDocs');renderCurrentTab()};document.getElementById('showDocsBtn').onclick=()=>{switchTab('docs');renderCurrentTab()};document.getElementById('showDelayedDocsBtn').onclick=()=>{switchTab('delayedDocs');renderCurrentTab()};document.getElementById('showCompletedDocsBtn').onclick=()=>{switchTab('completedDocs');renderCurrentTab()};document.getElementById('showUpdateHistoryBtn').onclick=()=>{switchTab('updateHistory');renderCurrentTab()};
+document.getElementById('undoUpdateHistoryBtn').onclick=undoUpdateHistory;document.getElementById('clearUpdateHistoryBtn').onclick=clearUpdateHistory;
+document.getElementById('allDocsRegionFilter').addEventListener('change',renderAllDocs);document.getElementById('allDocsOwnerFilter').addEventListener('change',renderAllDocs);document.getElementById('allDocsStatusFilter').addEventListener('change',renderAllDocs);document.getElementById('allDocsCodeFilter').addEventListener('change',renderAllDocs);document.getElementById('allDocsTestItemFilter').addEventListener('change',renderAllDocs);document.getElementById('allDocsSearch').addEventListener('input',renderAllDocs);
+document.getElementById('docPickerSearch').addEventListener('input',renderDocPicker);
+if(document.getElementById('delayedSearch'))document.getElementById('delayedSearch').addEventListener('input',renderDelayedDocs);
+if(document.getElementById('completedSearch'))document.getElementById('completedSearch').addEventListener('input',renderCompletedDocs);document.getElementById('clearAllDocsFilter').onclick=()=>{document.getElementById('allDocsRegionFilter').value='';document.getElementById('allDocsOwnerFilter').value='';document.getElementById('allDocsStatusFilter').value='';document.getElementById('allDocsCodeFilter').value='';document.getElementById('allDocsTestItemFilter').value='';document.getElementById('allDocsSearch').value='';renderAllDocs()}
+document.getElementById('clearDocsFilter').onclick=()=>{
+  ['docsRegionFilter','docsOwnerFilter','docsCodeFilter','docsTestItemFilter','docsStatusFilter'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const s=document.getElementById('docsSearch');if(s)s.value='';
+  renderDocs();
+};
+document.getElementById('clearDelayedFilter').onclick=()=>{
+  ['delayedRegionFilter','delayedOwnerFilter','delayedCodeFilter','delayedTestItemFilter'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const s=document.getElementById('delayedSearch');if(s)s.value='';
+  renderDelayedDocs();
+};
+document.getElementById('clearCompletedFilter').onclick=()=>{
+  ['completedRegionFilter','completedOwnerFilter','completedCodeFilter','completedTestItemFilter'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const s=document.getElementById('completedSearch');if(s)s.value='';
+  renderCompletedDocs();
+};;
+document.getElementById('historySearch').addEventListener('input',e=>{state.historyKeyword=e.target.value;saveState();if(state.activeTab==='history')renderHistoryList()});
+document.getElementById('personFilter').addEventListener('change',e=>{state.personFilter=e.target.value;saveState();renderStats();renderCurrentTab();document.getElementById('filterInfo').textContent=state.personFilter?`${state.personFilter} 일정만 표시`:'전체 일정 표시'});
+document.getElementById('clearFilterBtn').onclick=()=>{state.personFilter='';saveState();renderPersonFilter();renderStats();renderCurrentTab()};
+document.getElementById('closeModalBtn').onclick=closeTripModal;document.getElementById('modalDeleteBtn').onclick=()=>{if(state.modalTripId)removeTrip(state.modalTripId)};document.getElementById('tripModal').addEventListener('click',e=>{if(e.target.id==='tripModal')closeTripModal()});document.getElementById('closeDocPickerBtn').onclick=closeDocPicker;document.getElementById('multiSelectBtn').onclick=multiSelectDocs;document.getElementById('docPickerModal').addEventListener('click',e=>{if(e.target.id==='docPickerModal')closeDocPicker()});document.getElementById('docPickerSearch').addEventListener('input',renderDocPicker);}
+function setRiskComplete(docId){
+  const doc=state.docs.find(d=>d.id===docId);
+  if(!doc)return;
+  if(!confirm(`"${doc.destination||doc.receiptDoc}" 사전위험성을 완료 처리할까요?\n(1년 이내 동일 사업장·배출구 재방문 불필요)`))return;
+  doc.riskAssessment='완료';
+  doc._origRiskAssessment='완료';
+  // ★ 같은 destination+outlet 조합의 다른 문서도 완료 처리
+  state.docs.forEach(d=>{
+    if(d.id!==docId && d.destination===doc.destination && d.outlet===doc.outlet){
+      if(d.riskAssessment==='필요'||d.riskAssessment?.startsWith('진행중')){
+        d.riskAssessment='완료';
+        d._origRiskAssessment='완료';
+      }
+    }
+  });
+  saveState();
+  renderCurrentTab();
+}
+window.setRiskComplete=setRiskComplete;
+window.removeTrip=removeTrip;window.completeTrip=completeTrip;window.openTripModal=openTripModal;window.editTripFromModal=editTripFromModal;window.delayDoc=delayDoc;window.undoDelayDoc=undoDelayDoc;window.deleteDoc=deleteDoc;window.deleteSchedule=deleteSchedule;window.uploadToGitHub=uploadToGitHub;window.toggleTokenVisibility=toggleTokenVisibility;
+loadState();
+// ★ 기존 사전위험성 출장 → 문서 riskAssessment 동기화 (로드 시 한 번)
+(function syncRiskTripsOnLoad(){
+  (state.trips||[]).filter(t=>t.risk&&t.docNo).forEach(function(t){
+    const doc=state.docs.find(d=>(d.receiptDoc||'')===(t.docNo||'')||d.docNo===t.docNo);
+    if(doc && doc.riskAssessment && doc.riskAssessment==='필요'){
+      if(!doc._origRiskAssessment) doc._origRiskAssessment='필요';
+      doc.riskAssessment=`진행중(${new Date(t.tripDate).getMonth()+1}월)`;
+    }
+  });
+})();
+bindEvents();renderAll();renderIssueBox();
+
+// ── 저장된 저장소 복원 ──
+const savedRepo = localStorage.getItem('gh-admin-repo');
+if (savedRepo) document.getElementById('ghOwnerRepo').value = savedRepo;
+const savedUpdatedBy = localStorage.getItem('gh-updated-by');
+if (savedUpdatedBy) document.getElementById('ghUpdatedBy').value = savedUpdatedBy;
+
+// ── 빠른 업로드 버튼 ──
+document.getElementById('ghQuickUploadBtn').onclick = () => {
+  const section = document.getElementById('ghUploadSection');
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 입력값 없으면 안내
+  const token = document.getElementById('ghToken').value.trim();
+  if (!token) {
+    setGhStatus('⬆ Token을 입력하고 업로드 버튼을 눌러주세요.', 'loading');
+  }
+};
+
+document.getElementById('showAiBtn').onclick=()=>{switchTab('ai'); aiRestoreChat();};
+
+// ══════════════════════════════════════════════
+// 🤖 Claude AI 출장 자동 배정 시스템
+// ══════════════════════════════════════════════
+
+// ── API Key 관리 ──
+(function initAiKey(){
+  const saved = localStorage.getItem('ai-api-key');
+  if(saved){ document.getElementById('aiApiKey').value=saved; document.getElementById('aiKeyStatus').textContent='✅ 저장된 키 로드됨'; }
+})();
+function saveAiApiKey(){
+  const raw=document.getElementById('aiApiKey').value;
+  const k=raw.replace(/[^\x20-\x7E]/g,'').trim();
+  if(!k){alert('API Key를 입력하세요.');return;}
+  document.getElementById('aiApiKey').value=k;
+  localStorage.setItem('ai-api-key',k);
+  document.getElementById('aiKeyStatus').textContent='✅ 저장 완료';
+  setTimeout(()=>document.getElementById('aiKeyStatus').textContent='',2000);
+}
+function toggleAiKeyVisibility(){
+  const inp=document.getElementById('aiApiKey');
+  inp.type=inp.type==='password'?'text':'password';
+}
+
+// ── 채팅 메시지 렌더 ──
+const AI_HISTORY_KEY = 'ai-chat-history-v1';
+const aiHistory = JSON.parse(localStorage.getItem(AI_HISTORY_KEY) || '[]');
+
+function aiSaveHistory(){
+  try{ localStorage.setItem(AI_HISTORY_KEY, JSON.stringify(aiHistory)); }catch(e){}
+}
+
+function aiAppendMsg(role, html, raw){
+  const box=document.getElementById('aiChatBox');
+  const wrap=document.createElement('div');
+  wrap.style.cssText=`display:flex;flex-direction:column;align-items:${role==='user'?'flex-end':'flex-start'};`;
+  const bubble=document.createElement('div');
+  bubble.style.cssText=`max-width:80%;padding:10px 14px;border-radius:${role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px'};font-size:13px;line-height:1.6;white-space:pre-wrap;`
+    +(role==='user'?'background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;'
+      :'background:white;border:1px solid #e2e8f0;color:#1e293b;');
+  bubble.innerHTML=html||raw||'';
+  wrap.appendChild(bubble);
+  box.appendChild(wrap);
+  box.scrollTop=box.scrollHeight;
+  return bubble;
+}
+
+// ── 새로고침 후 채팅 복원 (페이지 로드 시 자동 실행) ──
+let aiChatRestored = false;
+function aiRestoreChat(){
+  if(aiChatRestored) return;
+  aiChatRestored = true;
+  if(aiHistory.length===0) return;
+  aiHistory.forEach(m=>aiAppendMsg(m.role, m.content));
+  const box=document.getElementById('aiChatBox');
+  if(box) box.scrollTop=box.scrollHeight;
+}
+// 탭과 무관하게 페이지 로드되면 바로 복원
+document.addEventListener('DOMContentLoaded', aiRestoreChat);
+
+// ── 채팅 초기화 버튼 (헤더에 추가됨) ──
+function aiClearHistory(){
+  if(!confirm('채팅 내역을 모두 삭제할까요?')) return;
+  aiHistory.length=0;
+  aiSaveHistory();
+  aiChatRestored=false;
+  document.getElementById('aiChatBox').innerHTML='';
+}
+
+// ── 컨텍스트 구성 ──
+
+// ── 기본 규칙 (state.rules가 없어도 항상 적용) ──
+const DEFAULT_RULES = {
+  ranks: {
+    '차장': ['조성수'],
+    '과장': ['강훈희', '이병우', '신누리', '신현지'],
+    '대리': ['문숙', '유황준', '송철민', '장일웅', '정우진', '한동우'],
+    '주임': ['김민지', '윤석래', '권신혜', '이수현']
+  },
+  skill: {
+    '숙련자': ['강훈희', '이병우', '신누리', '신현지', '문숙', '장일웅'],
+    '중간숙련자': ['조성수', '유황준', '송철민', '정우진', '한동우', '윤석래', '김민지'],
+    '신입(중간숙련자급)': ['권신혜', '이수현']
+  },
+  tripComposition: '출장조는 보통 3명. 숙련자 1명 + 그외 2명 구성 원칙',
+  vehiclePriority: '시험항목에 먼지+HCl 모두 포함 시 카니발(5881) 우선. 그외 빈 차량 랜덤',
+  riskTripTiming: '사전위험성 출장건은 1~2주차 내 완료 원칙. 부득이 시 3주차까지 허용',
+  riskTripBundling: '사전위험성 출장건은 같은 지역이면 최대 2개 사업장까지 하루에 묶어서 진행 가능. 3개 이상은 불가',
+  distanceBundling: '당진·서산·태안 등 원거리 사업장은 같은 방향 출장건끼리 묶어 1박2일로 배정. 묶음 출장 시 같은 차량·같은 출장자가 숙박하며 연속 수행. tripDate와 endDate를 다르게 설정하고 members는 동일하게 구성',
+  deadline: '전건 6월 말까지 완료(부장님 지시). 결과통보일 1~2개월 전후로 출장 계획',
+  blockingSchedules: 'schedules 배열 참고'
+};
+
+// ── 기본 불가일정 (state.schedules가 없어도 항상 적용) ──
+const DEFAULT_SCHEDULES = [
+  { startDate:'2026-04-29', endDate:'2026-04-30', type:'교육', label:'실무교육(제천)', members:['조성수','정우진','한동우','권신혜','이수현'], allMembers:false, confirmed:true, note:'해당 인원 출장 배정 불가' },
+  { startDate:'2026-05-04', endDate:'2026-05-04', type:'연가', label:'신누리 연가', members:['신누리'], allMembers:false, confirmed:true, note:'연가' },
+  { startDate:'2026-05-06', endDate:'2026-05-08', type:'재택', label:'윤석래 재택(ISO교육)', members:['윤석래'], allMembers:false, confirmed:true, note:'출장 배정 불가' },
+  { startDate:'2026-05-11', endDate:'2026-05-11', type:'봉사활동', label:'전체 봉사활동(현충원)', members:[], allMembers:true, confirmed:true, note:'전체 인원 출장 배정 불가' },
+  { startDate:'2026-05-14', endDate:'2026-05-15', type:'워킹그룹', label:'워킹그룹(오송)', members:['이병우','정우진','권신혜'], allMembers:false, confirmed:true, note:'해당 3인 출장 배정 불가' },
+  { startDate:'2026-05-19', endDate:'2026-05-20', type:'행사', label:'⚠️[미정] 위험성평가 행사(서산)', members:[], allMembers:true, confirmed:false, note:'19~20일 또는 20~21일 미정. 전체 인원 출장 배정 불가' }
+];
+
+function buildAiContext(){
+  const pendingDocs=(state.docs||[]).filter(d=>!d.completed&&!d.delayed);
+  const travelers=state.travelers&&state.travelers.length>0
+    ? state.travelers
+    : ['강훈희','문숙','이수현','조성수','정우진','신누리','김민지','유황준','이병우','윤석래','송철민','장일웅','신현지','권신혜','한동우','김철수'];
+  const existingTrips=(state.trips||[]).filter(t=>t.status!=='completed');
+
+  // state에 있으면 우선, 없으면 기본값 사용
+  const rules = (state.rules && state.rules.ranks) ? state.rules : DEFAULT_RULES;
+  const schedules = (state.schedules && state.schedules.length>0) ? state.schedules : DEFAULT_SCHEDULES;
+
+  // 직급표 문자열 생성
+  const ranksStr = Object.entries(rules.ranks).map(([r,ms])=>`  ${r}: ${ms.join(', ')}`).join('\n');
+
+  // 숙련도 문자열 생성
+  const skillStr = Object.entries(rules.skill).map(([s,ms])=>`  ${s}: ${ms.join(', ')}`).join('\n');
+
+  // 불가일정 문자열 생성
+  const blocksStr = schedules.map(s=>{
+    const who = s.allMembers ? '전체 인원' : (s.members||[]).join(', ');
+    const conf = s.confirmed ? '' : '⚠️[미정] ';
+    return `  ${conf}${s.startDate}~${s.endDate} [${s.type}] ${s.label} / 대상: ${who}\n    → ${s.note}`;
+  }).join('\n');
+
+  return `당신은 충청권환경본부 출장 배정 담당 AI입니다. 아래 정보를 바탕으로 최적의 출장을 배정하세요.
+회사 위치는 대전입니다.
+
+## 출장자 목록 (${travelers.length}명)
+${travelers.join(', ')}
+
+## 직급표
+${ranksStr}
+
+## 숙련도
+${skillStr}
+
+## 출장조 구성 원칙
+${rules.tripComposition||'숙련자 1명 + 그외 2명, 총 3명'}
+
+## 차량 목록 및 배정 우선순위
+- 5881 카니발(하늘색): ${rules.vehiclePriority||'먼지+HCl 동시 포함 시 우선 배정'}
+- 2559 쏘렌토 지하주차(초록색)
+- 2555 쏘렌토 지상주차(노란색)
+차량 배정 규칙: ${rules.vehiclePriority||''}
+
+## 원거리 묶음 배정 (1박2일)
+${rules.distanceBundling}
+- 묶음 배정 시 JSON에서 첫 번째 사업장: tripDate=출발일, endDate=둘째날
+- 두 번째 사업장(같은 출장): tripDate=둘째날, endDate=둘째날, vehicle·members 동일하게 설정
+- 예시: 서산A(5/7~5/8) + 서산B(5/8~5/8) → 같은 차량·같은 출장자, 숙박 1박
+
+## 사전위험성 출장 규칙
+- 우선순위: ${rules.riskTripTiming}
+- 당일 묶음: ${rules.riskTripBundling}
+- 빈칸=필요, 채워져있으면=완료로 엑셀에서 파싱됨
+- 사전위험성:필요 건을 같은 날 같은 지역에서 2개까지 묶을 경우 tripDate·endDate·vehicle·members 동일하게 2개 JSON 항목으로 표현
+
+## 마감 기한
+${rules.deadline||'전건 6월 말까지 완료'}
+
+## 출장 불가 일정 (반드시 준수)
+${blocksStr}
+
+## 이미 배정된 출장 (중복 금지)
+${existingTrips.length===0?'없음':existingTrips.map(t=>`- ${t.tripDate}~${t.endDate||t.tripDate} [${t.vehicle}] ${t.destination}/${t.outlet} 담당:${t.owner} 출장자:${(t.members||[]).join(',')}`).join('\n')}
+
+## 배정 대기 문서 (${pendingDocs.length}건)
+${pendingDocs.length===0?'없음':pendingDocs.map(d=>{
+  const risk=d.riskAssessment==='필요'?'⚠️[사전위험성 필요]':'';
+  return `- ${risk} docNo:${d.docNo} planMonth:${d.planMonth} 지역:${d.region} 담당:${d.owner} 사업장:${d.destination} 배출구:${d.outlet} 시험:${d.testItem} 업무:${d.task} 납기:${d.resultDueDate} 사전위험성:${d.riskAssessment||'완료/해당없음'}`;
+}).join('\n')}
+
+## 사전위험성 출장 대기 건 (별도 강조)
+${(()=>{const r=pendingDocs.filter(d=>d.riskAssessment==='필요');return r.length===0?'없음':r.map(d=>`⚠️ ${d.destination} / ${d.outlet} / 담당:${d.owner} / 납기:${d.resultDueDate} → 1~2주차 내 우선 배정 필요`).join('\n');})()}
+
+## 핵심 배정 규칙 (절대 준수)
+1. 차량 1대에 하루 최대 1건 (중복 불가)
+2. 출장자 1인 하루 최대 1건
+3. 담당자(owner)는 반드시 members에 포함
+4. 불가일정 대상자는 해당 기간 배정 금지 (allMembers:true면 전원 금지)
+5. confirmed:false 불가일정은 미정이므로 해당 날짜 배정 시 reason에 "⚠️날짜미정 주의" 명시
+6. 주말(토·일), 공휴일 배정 불가
+7. 이미 배정된 날짜·차량·출장자 중복 금지
+8. planMonth 기준 월 내 배정 원칙, 납기일과 마감기한 함께 고려
+9. 사전위험성:필요 건은 해당 월 1~2주차 내 반드시 우선 배정 (부득이 시 3주차까지)
+10. 사전위험성 건은 같은 지역이면 하루에 최대 2개 사업장까지 묶기 가능 (3개 이상 불가). 묶을 경우 tripDate·endDate·vehicle·members 동일한 JSON 항목 2개로 표현
+11. 원거리 1박2일 묶음 시 같은 차량·같은 출장자가 숙박하며 연속 수행. 첫째날 사업장과 둘째날 사업장을 별도 JSON 항목으로 표현하되 vehicle·members 동일하게 설정
+
+## 응답 형식
+배정 요청 시 반드시 JSON 배열만 반환하세요 (설명·마크다운 불필요):
+[
+  {
+    "docNo": "접수-2026-xxx",
+    "tripDate": "YYYY-MM-DD",
+    "endDate": "YYYY-MM-DD",
+    "vehicle": "5881|2559|2555",
+    "owner": "담당자명",
+    "destination": "사업장명",
+    "outlet": "배출구",
+    "testItem": "시험항목",
+    "task": "업무내용",
+    "members": ["출장자1","출장자2","출장자3"],
+    "region": "지역",
+    "planMonth": "YYYY-MM",
+    "reason": "배정 이유 (숙련도·차량·묶음 등 근거 포함)"
+  }
+]
+
+배정 요청이 아닌 일반 질문은 자유롭게 한국어로 답변하세요.`;
+}
+
+// ── 전송 ──
+async function aiSend(){
+  const inp=document.getElementById('aiInput');
+  const userMsg=inp.value.trim();
+  if(!userMsg)return;
+  const apiKey=(document.getElementById('aiApiKey').value||'').trim()||localStorage.getItem('ai-api-key')||'';
+  if(!apiKey){alert('Anthropic API Key를 먼저 입력하고 저장하세요.\n(🤖 AI 배정 탭 상단 입력창)');return;}
+
+  inp.value='';
+  aiAppendMsg('user',userMsg);
+  aiHistory.push({role:'user',content:userMsg});
+  aiSaveHistory();
+
+  // 로딩 버블
+  const box=document.getElementById('aiChatBox');
+  const loadWrap=document.createElement('div');
+  loadWrap.style.cssText='display:flex;align-items:flex-start;';
+  const loadBubble=document.createElement('div');
+  loadBubble.style.cssText='padding:10px 14px;border-radius:16px 16px 16px 4px;background:white;border:1px solid #e2e8f0;font-size:13px;color:#94a3b8;';
+  loadBubble.textContent='⏳ Claude가 분석 중입니다...';
+  loadWrap.appendChild(loadBubble);
+  box.appendChild(loadWrap);
+  box.scrollTop=box.scrollHeight;
+
+  document.getElementById('aiSendBtn').disabled=true;
+
+  try{
+    const sysPrompt=buildAiContext();
+    // API Key에서 ASCII 범위 밖 문자 제거 (한글/특수문자 방지)
+    const safeKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim();
+    if(!safeKey){ alert('API Key에 유효하지 않은 문자가 포함되어 있습니다.\n콘솔에서 키를 다시 복사해서 붙여넣어 주세요.'); document.getElementById('aiSendBtn').disabled=false; return; }
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':safeKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:8000,
+        system:sysPrompt,
+        messages:aiHistory
+      })
+    });
+    const data=await res.json();
+    console.log('API 응답 상태:', res.status, data);
+    if(!res.ok || data.error){
+      const errDetail = data.error?.message || data.error?.type || JSON.stringify(data);
+      throw new Error(`[HTTP ${res.status}] ${errDetail}`);
+    }
+    const reply=data.content.map(c=>c.text||'').join('');
+    aiHistory.push({role:'assistant',content:reply});
+    aiSaveHistory();
+
+    loadWrap.remove();
+
+    // JSON 배정안인지 판별
+    const jsonMatch=reply.match(/\[[\s\S]*\]/);
+    if(jsonMatch){
+      try{
+        // 중복 key 등 오류 대비: 각 객체별로 마지막 값 우선 적용
+        const raw=jsonMatch[0];
+        let plans=JSON.parse(raw);
+        if(Array.isArray(plans)&&plans.length>0&&plans[0].docNo!==undefined){
+          aiAppendMsg('assistant',`✅ ${plans.length}건의 배정안을 생성했습니다. 아래 테이블에서 확인 후 등록하세요.`);
+          aiShowResult(plans);
+        }else{
+          aiAppendMsg('assistant',reply);
+        }
+      }catch(e){
+        // JSON 파싱 실패 시 객체 단위로 하나씩 파싱 시도
+        try{
+          const objMatches=[...reply.matchAll(/\{[\s\S]*?\}(?=\s*,|\s*\])/g)];
+          const plans=objMatches.map(m=>{
+            try{ return JSON.parse(m[0]); }catch(e2){ return null; }
+          }).filter(Boolean).filter(p=>p.destination||p.docNo);
+          if(plans.length>0){
+            aiAppendMsg('assistant',`⚠️ JSON 일부 파싱 성공: ${plans.length}건. 누락된 항목이 있을 수 있으니 확인 후 등록하세요.`);
+            aiShowResult(plans);
+          }else{
+            aiAppendMsg('assistant',reply+'\n\n⚠️ 배정안 테이블 변환 실패. 위 내용을 참고해 수동으로 등록해주세요.');
+          }
+        }catch(e3){
+          aiAppendMsg('assistant',reply);
+        }
+      }
+    }else{
+      aiAppendMsg('assistant',reply);
+    }
+  }catch(err){
+    loadWrap.remove();
+    console.error('AI API 오류 상세:', err);
+    // HTTP 응답 에러면 상세 내용 표시
+    let errMsg = err.message || String(err);
+    if(errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError') || errMsg === 'Failed to fetch'){
+      errMsg = 'API 서버에 연결할 수 없습니다.\n\n가능한 원인:\n• 인터넷 연결 확인\n• API Key가 올바른지 확인 (sk-ant-api03-... 형식)\n• 브라우저 콘솔(F12)에서 상세 오류 확인';
+    }
+    aiAppendMsg('assistant',`❌ 오류: ${errMsg}`);
+  }finally{
+    document.getElementById('aiSendBtn').disabled=false;
+    inp.focus();
+  }
+}
+
+// ── 배정안 테이블 표시 ──
+let aiPlans=[];
+function aiShowResult(plans){
+  aiPlans=plans;
+  const card=document.getElementById('aiResultCard');
+  const tbody=document.getElementById('aiResultBody');
+  const VEHICLES={'5881':'카니발(하늘)','2559':'쏘렌토 지하(초록)','2555':'쏘렌토 지상(노란)'};
+  card.classList.remove('hidden');
+  document.getElementById('aiResultCount').textContent=`${plans.length}건`;
+  tbody.innerHTML=plans.map((p,i)=>`
+    <tr id="aiRow${i}">
+      <td><input type="checkbox" class="ai-chk" data-idx="${i}" checked></td>
+      <td>${p.tripDate}${p.endDate&&p.endDate!==p.tripDate?'~'+p.endDate:''}</td>
+      <td><span class="badge" style="background:${p.vehicle==='5881'?'#0ea5e9':p.vehicle==='2559'?'#22c55e':'#f59e0b'};color:white;">${VEHICLES[p.vehicle]||p.vehicle}</span></td>
+      <td>${p.owner||''}</td>
+      <td>${p.destination||''}</td>
+      <td>${p.outlet||''}</td>
+      <td>${p.testItem||''}</td>
+      <td>${(p.members||[]).join(', ')}</td>
+      <td style="font-size:12px;color:var(--c-muted);max-width:180px;">${p.reason||''}</td>
+    </tr>`).join('');
+  card.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function aiToggleAll(cb){
+  document.querySelectorAll('.ai-chk').forEach(c=>c.checked=cb.checked);
+}
+function aiClearResult(){
+  aiPlans=[];
+  document.getElementById('aiResultCard').classList.add('hidden');
+  document.getElementById('aiResultBody').innerHTML='';
+}
+
+// ── 전체 등록 ──
+function aiRegisterAll(){
+  const checked=[...document.querySelectorAll('.ai-chk')].filter(c=>c.checked).map(c=>parseInt(c.dataset.idx));
+  if(checked.length===0){alert('등록할 항목을 선택하세요.');return;}
+  const selected=checked.map(i=>aiPlans[i]);
+
+  // 충돌 검사
+  const conflicts=[];
+  selected.forEach(p=>{
+    const dateRange=getDatesInRange(p.tripDate,p.endDate||p.tripDate);
+    dateRange.forEach(d=>{
+      (state.trips||[]).forEach(t=>{
+        if(t.vehicle===p.vehicle&&getDatesInRange(t.tripDate,t.endDate||t.tripDate).includes(d)){
+          conflicts.push(`차량 ${p.vehicle} ${d} 중복: ${p.destination}`);
+        }
+        (t.members||[]).forEach(m=>{
+          if((p.members||[]).includes(m)&&getDatesInRange(t.tripDate,t.endDate||t.tripDate).includes(d)){
+            conflicts.push(`출장자 ${m} ${d} 중복: ${p.destination}`);
+          }
+        });
+      });
+    });
+  });
+
+  if(conflicts.length>0){
+    if(!confirm(`⚠️ 아래 충돌이 감지되었습니다. 그래도 등록하시겠습니까?\n\n${conflicts.slice(0,8).join('\n')}${conflicts.length>8?'\n...('+conflicts.length+'건 전체)':''}`))return;
+  }
+
+  // 주말 체크
+  const weekendConflicts=[];
+  selected.forEach(p=>{
+    getDatesInRange(p.tripDate,p.endDate||p.tripDate).forEach(d=>{
+      const day=new Date(d).getDay();
+      if(day===0||day===6) weekendConflicts.push(`${p.destination} ${d} (주말)`);
+    });
+  });
+  if(weekendConflicts.length>0){
+    if(!confirm(`⚠️ 주말에 배정된 항목이 있습니다. 그래도 등록하시겠습니까?\n\n${weekendConflicts.join('\n')}`))return;
+  }
+
+  let maxId=Math.max(0,...(state.trips||[]).map(t=>t.id||0));
+  const newTrips=selected.map(p=>{
+    maxId++;
+    return {
+      id:maxId,
+      tripDate:p.tripDate,
+      endDate:p.endDate||p.tripDate,
+      docNo:p.docNo||'',
+      vehicle:p.vehicle,
+      planMonth:p.planMonth||p.tripDate.slice(0,7),
+      region:p.region||'',
+      owner:p.owner||'',
+      destination:p.destination||'',
+      outlet:p.outlet||'',
+      testItem:p.testItem||'',
+      task:p.task||'',
+      members:p.members||[],
+      note:p.reason?`[AI배정] ${p.reason}`:'[AI배정]',
+      risk:false,
+      status:'planned',
+      completedAt:'',
+      resultNote:''
+    };
+  });
+
+  state.trips=[...(state.trips||[]),...newTrips];
+  // ★ 문서 리스트 연동 (진행중 상태 반영)
+  newTrips.forEach(t=>{ if(typeof syncTripToDoc==='function') syncTripToDoc(t); });
+  saveState();
+  renderAll();
+  aiClearResult();
+  aiAppendMsg('assistant',`🎉 ${newTrips.length}건의 출장이 성공적으로 등록되었습니다!\n배정 보드 탭에서 확인하세요.`);
+  alert(`✅ ${newTrips.length}건 등록 완료!`);
+}
+
+// ── 날짜 범위 헬퍼 ──
+function getDatesInRange(start,end){
+  const dates=[];
+  let cur=new Date(start);
+  const endD=new Date(end||start);
+  while(cur<=endD){
+    dates.push(cur.toISOString().slice(0,10));
+    cur.setDate(cur.getDate()+1);
+  }
+  return dates;
+}
+
+// ── Enter키 전송 ──
+document.getElementById('aiInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){aiSend();}
+});
+
+setTimeout(function(){
+  if(typeof XLSX !== 'undefined'){
+    console.log('✅ XLSX 라이브러리 로드 완료');
+  } else {
+    console.warn('⚠️ XLSX 라이브러리 로드 실패 - 엑셀 업로드 불가 (인터넷 연결 필요)');
+  }
+}, 1000);
+
+</script>
+</body>
+</html>
